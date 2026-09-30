@@ -6,3 +6,6 @@ compatibility_date = "2026-09-30"
 binding = "DB"
 database_name = "texmo-hostel-db"
 database_id = "9fa2fbaa-3538-46c5-9b88-fb399283cb5c"
+
+[assets]
+directory = "."
