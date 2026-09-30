@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071a12">
+
   <title>TEXMO · Hostel Hub</title>
 
   <style>
@@ -13,53 +14,205 @@
       padding: 0;
     }
 
+    :root {
+      --green: #087f3f;
+      --green-dark: #055c2d;
+      --green-light: #e9f8ef;
+      --navy: #071a12;
+      --text: #14251c;
+      --muted: #718078;
+      --border: #e2ebe5;
+      --bg: #f4f8f5;
+      --white: #ffffff;
+      --red: #dc2626;
+      --blue: #2563eb;
+      --shadow: 0 8px 28px rgba(5, 30, 18, .08);
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #f4f7fb;
-      color: #172033;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+      background:
+        linear-gradient(
+          180deg,
+          #eef7f1 0%,
+          #f7faf8 45%,
+          #f4f7f5 100%
+        );
+      color: var(--text);
       min-height: 100vh;
     }
 
+    button,
+    input,
+    select {
+      font-family: inherit;
+    }
+
+    /* HEADER */
+
     header {
-      background: #0f172a;
+      background:
+        linear-gradient(
+          135deg,
+          #071a12,
+          #0b3821
+        );
       color: white;
-      padding: 18px 16px;
+      padding: 18px 17px;
       position: sticky;
       top: 0;
-      z-index: 20;
-      box-shadow: 0 3px 12px rgba(0,0,0,.15);
+      z-index: 50;
+      box-shadow: 0 5px 22px rgba(0,0,0,.18);
+    }
+
+    .header-inner {
+      max-width: 700px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .logo-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 21px;
+      font-weight: 900;
     }
 
     .brand {
-      font-size: 21px;
-      font-weight: 800;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: .3px;
     }
 
     .sub {
-      font-size: 12px;
-      opacity: .75;
+      font-size: 11px;
+      opacity: .68;
       margin-top: 4px;
+      letter-spacing: .2px;
     }
+
+    /* MAIN */
 
     main {
       width: 100%;
-      max-width: 650px;
+      max-width: 700px;
       margin: auto;
-      padding: 16px;
-      padding-bottom: 40px;
+      padding: 17px;
+      padding-bottom: 35px;
     }
 
+    section {
+      animation: fadeIn .25s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* HERO */
+
+    .hero {
+      background:
+        linear-gradient(
+          135deg,
+          #087f3f,
+          #075f31
+        );
+      color: white;
+      border-radius: 23px;
+      padding: 25px 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 12px 30px rgba(8,127,63,.18);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      right: -55px;
+      top: -55px;
+      background: rgba(255,255,255,.07);
+    }
+
+    .hero-tag {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 20px;
+      background: rgba(255,255,255,.12);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .hero h1 {
+      font-size: 27px;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+
+    .hero p {
+      font-size: 13px;
+      line-height: 1.6;
+      opacity: .85;
+    }
+
+    /* CARD */
+
     .card {
-      background: white;
-      border-radius: 18px;
+      background: var(--white);
+      border: 1px solid rgba(226,235,229,.9);
+      border-radius: 20px;
       padding: 18px;
       margin-bottom: 15px;
-      box-shadow: 0 5px 18px rgba(15,23,42,.07);
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 15px;
+    }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 11px;
+      background: var(--green-light);
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
     }
 
     h2 {
-      font-size: 19px;
-      margin-bottom: 14px;
+      font-size: 18px;
+      font-weight: 800;
     }
 
     h3 {
@@ -67,57 +220,168 @@
       margin-bottom: 10px;
     }
 
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* PORTAL BUTTONS */
+
+    .portal-button {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      text-align: left;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 15px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .portal-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .portal-icon {
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      border-radius: 13px;
+      background: var(--green-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .portal-info strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+
+    .portal-info span {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    /* FORM */
+
     label {
       display: block;
-      font-size: 13px;
-      font-weight: 700;
-      margin: 12px 0 6px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #34463c;
+      margin: 13px 0 6px;
     }
 
     input,
     select {
       width: 100%;
-      padding: 13px;
-      border: 1px solid #d7dce5;
-      border-radius: 11px;
-      background: white;
-      font-size: 15px;
+      padding: 13px 14px;
+      border: 1px solid #d8e2dc;
+      border-radius: 12px;
+      background: #fbfdfc;
+      color: var(--text);
+      font-size: 14px;
       outline: none;
+      transition: .2s;
     }
 
     input:focus,
     select:focus {
-      border-color: #2563eb;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(8,127,63,.08);
+      background: white;
     }
+
+    /* BUTTON */
 
     button {
       width: 100%;
       border: 0;
-      border-radius: 12px;
+      border-radius: 13px;
       padding: 14px;
       margin-top: 12px;
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 800;
       cursor: pointer;
-      background: #2563eb;
+      background: var(--green);
       color: white;
+      transition:
+        transform .15s ease,
+        box-shadow .15s ease,
+        opacity .15s ease;
+    }
+
+    button:active {
+      transform: scale(.98);
+    }
+
+    button:hover {
+      box-shadow: 0 7px 18px rgba(8,127,63,.16);
     }
 
     button.secondary {
-      background: #e8eefc;
-      color: #1d4ed8;
+      background: #edf4ef;
+      color: var(--green-dark);
     }
 
     button.danger {
-      background: #dc2626;
+      background: var(--red);
     }
 
     button.success {
-      background: #16a34a;
+      background: #159447;
     }
+
+    button.blue {
+      background: var(--blue);
+    }
+
+    /* BACK */
+
+    .back-button {
+      background: transparent !important;
+      color: var(--muted) !important;
+      box-shadow: none !important;
+      border: 1px solid var(--border);
+    }
+
+    /* HIDDEN */
 
     .hidden {
       display: none !important;
+    }
+
+    /* DASHBOARD */
+
+    .dashboard-head {
+      background:
+        linear-gradient(
+          135deg,
+          #071a12,
+          #0a3b22
+        );
+      color: white;
+      border-radius: 21px;
+      padding: 19px;
+      margin-bottom: 15px;
+    }
+
+    .dashboard-head .small {
+      color: rgba(255,255,255,.65);
+    }
+
+    .dashboard-title {
+      font-size: 21px;
+      font-weight: 900;
+      margin-bottom: 5px;
     }
 
     .grid {
@@ -127,74 +391,32 @@
     }
 
     .stat {
-      background: #f8fafc;
-      border-radius: 14px;
-      padding: 14px;
+      background: #f8fbf9;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 10px;
       text-align: center;
-      border: 1px solid #e8edf4;
+    }
+
+    .stat-icon {
+      font-size: 18px;
+      margin-bottom: 7px;
     }
 
     .stat strong {
       display: block;
-      font-size: 24px;
-      margin-bottom: 5px;
+      font-size: 25px;
+      margin-bottom: 4px;
+      color: var(--green-dark);
     }
 
     .stat span {
-      font-size: 12px;
-      color: #64748b;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
     }
 
-    .employee-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 14px;
-      padding: 14px;
-      margin-top: 10px;
-      background: #fff;
-    }
-
-    .employee-card strong {
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .small {
-      color: #64748b;
-      font-size: 12px;
-      line-height: 1.6;
-    }
-
-    .qr-box {
-      text-align: center;
-      padding: 15px;
-      border-radius: 15px;
-      background: #f8fafc;
-      margin-top: 12px;
-    }
-
-    #qrcode img {
-      margin: 10px auto;
-    }
-
-    .success-box {
-      background: #ecfdf5;
-      border: 1px solid #bbf7d0;
-      color: #166534;
-      padding: 13px;
-      border-radius: 12px;
-      margin-top: 12px;
-      font-size: 13px;
-    }
-
-    .error-box {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #991b1b;
-      padding: 13px;
-      border-radius: 12px;
-      margin-top: 12px;
-      font-size: 13px;
-    }
+    /* TOP ACTIONS */
 
     .top-actions {
       display: grid;
@@ -207,37 +429,50 @@
       margin-top: 0;
     }
 
-    video {
-      width: 100%;
+    /* EMPLOYEE */
+
+    .employee-card {
+      border: 1px solid var(--border);
       border-radius: 15px;
-      background: #000;
+      padding: 14px;
       margin-top: 10px;
-      max-height: 330px;
-      object-fit: cover;
+      background: #fff;
     }
 
-    .table-wrap {
-      overflow-x: auto;
-      margin-top: 12px;
+    .employee-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .profile-name {
+      font-size: 19px !important;
+      color: var(--green-dark);
+    }
+
+    .profile-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid #edf1ee;
       font-size: 12px;
-      min-width: 650px;
     }
 
-    th,
-    td {
-      padding: 9px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
+    .profile-row:last-child {
+      border-bottom: 0;
     }
 
-    th {
-      background: #f8fafc;
+    .profile-label {
+      color: var(--muted);
     }
+
+    .profile-value {
+      font-weight: 700;
+      text-align: right;
+    }
+
+    /* BADGE */
 
     .badge {
       display: inline-block;
@@ -245,20 +480,198 @@
       border-radius: 20px;
       background: #dcfce7;
       color: #166534;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    /* QR */
+
+    .qr-box {
+      text-align: center;
+      padding: 18px 12px;
+      border-radius: 17px;
+      background:
+        linear-gradient(
+          145deg,
+          #f5faf7,
+          #eef7f1
+        );
+      margin-top: 12px;
+      border: 1px dashed #c9dbcf;
+    }
+
+    #qrcode {
+      min-height: 220px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #qrcode img {
+      margin: 10px auto;
+      border-radius: 5px;
+    }
+
+    .qr-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--green-dark);
+      margin-bottom: 5px;
+    }
+
+    /* MESSAGES */
+
+    .success-box {
+      background: #ecfdf5;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 13px;
+      border-radius: 13px;
+      margin-top: 12px;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 13px;
+      border-radius: 13px;
+      margin-top: 12px;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    /* SCANNER */
+
+    .scanner-card {
+      border: 1px solid #d7e7dc;
+      background: #f8fcf9;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 16px;
+      background: #050505;
+      margin-top: 12px;
+      max-height: 330px;
+      object-fit: cover;
+      border: 3px solid #dcebe1;
+    }
+
+    .scanner-status {
+      margin-top: 10px;
+      padding: 10px;
+      background: #eaf7ee;
+      color: #176337;
+      border-radius: 11px;
       font-size: 11px;
+      text-align: center;
       font-weight: 700;
     }
 
+    /* LIST STATS */
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      margin-top: 9px;
+      background: #fff;
+    }
+
+    .stat-row-name {
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .stat-row-count {
+      min-width: 35px;
+      text-align: center;
+      padding: 6px 9px;
+      border-radius: 10px;
+      background: var(--green-light);
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    /* TABLE */
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      min-width: 650px;
+    }
+
+    th,
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #e8eee9;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f2f7f4;
+      color: #3d5045;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    /* DIVIDER */
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 900;
+      color: var(--green);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 9px;
+    }
+
+    /* FOOTER */
+
     footer {
       text-align: center;
-      color: #94a3b8;
-      font-size: 11px;
-      padding: 20px;
+      color: #91a097;
+      font-size: 10px;
+      padding: 18px;
+      letter-spacing: .4px;
     }
+
+    /* DESKTOP */
 
     @media (min-width: 700px) {
       main {
         padding-top: 25px;
+      }
+
+      .hero h1 {
+        font-size: 31px;
+      }
+
+      .portal-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .portal-button {
+        margin-top: 0;
       }
     }
   </style>
@@ -267,237 +680,650 @@
 <body>
 
 <header>
-  <div class="brand">TEXMO · Hostel Hub</div>
-  <div class="sub">Employee & HR Management Portal</div>
+  <div class="header-inner">
+
+    <div class="logo-box">
+      T
+    </div>
+
+    <div>
+      <div class="brand">
+        TEXMO · Hostel Hub
+      </div>
+
+      <div class="sub">
+        Employee & HR Management Portal
+      </div>
+    </div>
+
+  </div>
 </header>
+
 
 <main>
 
   <!-- HOME -->
+
   <section id="homeScreen">
 
-    <div class="card">
-      <h2>Welcome 👋</h2>
-      <p class="small">
-        Select your portal to continue.
+    <div class="hero">
+
+      <div class="hero-tag">
+        TEXMO HOSTEL MANAGEMENT
+      </div>
+
+      <h1>
+        Welcome to Hostel Hub
+      </h1>
+
+      <p>
+        One place for employee access, hostel information,
+        QR identification and cab management.
       </p>
 
-      <button onclick="showScreen('employeeLogin')">
-        Employee Portal
-      </button>
+    </div>
+
+
+    <div class="card">
+
+      <div class="card-title">
+
+        <div class="card-icon">
+          👋
+        </div>
+
+        <div>
+          <h2>
+            Select Portal
+          </h2>
+
+          <div class="small">
+            Choose how you want to continue.
+          </div>
+        </div>
+
+      </div>
+
+
+      <div class="portal-grid">
+
+        <button
+          class="portal-button"
+          onclick="showScreen('employeeLogin')">
+
+          <div class="portal-icon">
+            👤
+          </div>
+
+          <div class="portal-info">
+            <strong>
+              Employee Portal
+            </strong>
+
+            <span>
+              View profile & personal QR
+            </span>
+          </div>
+
+        </button>
+
+
+        <button
+          class="portal-button"
+          onclick="showScreen('hrLogin')">
+
+          <div class="portal-icon">
+            👨‍💼
+          </div>
+
+          <div class="portal-info">
+            <strong>
+              HR Portal
+            </strong>
+
+            <span>
+              Dashboard & cab management
+            </span>
+          </div>
+
+        </button>
+
+      </div>
+
 
       <button
         class="secondary"
-        onclick="showScreen('hrLogin')">
-        HR Portal
+        onclick="showScreen('employeeRegister')">
+
+        ➕ New Employee Registration
+
       </button>
+
+    </div>
+
+
+    <div class="card">
+
+      <div class="section-label">
+        SYSTEM
+      </div>
+
+      <div class="small">
+        🔐 Secure employee identification<br>
+        📱 Mobile-first experience<br>
+        🚐 QR-based cab entry<br>
+        📊 HR documentation & reports
+      </div>
+
     </div>
 
   </section>
 
 
   <!-- EMPLOYEE LOGIN -->
+
   <section id="employeeLogin" class="hidden">
 
     <div class="card">
-      <h2>Employee Portal</h2>
 
-      <label>Employee ID</label>
+      <div class="card-title">
+
+        <div class="card-icon">
+          👤
+        </div>
+
+        <div>
+          <h2>
+            Employee Portal
+          </h2>
+
+          <div class="small">
+            Enter your employee ID.
+          </div>
+        </div>
+
+      </div>
+
+
+      <label>
+        Employee ID
+      </label>
+
       <input
         id="employeeLoginId"
         placeholder="Enter Employee ID"
         autocomplete="off"
       />
 
+
       <button onclick="employeeLogin()">
-        Continue
+        Continue →
       </button>
+
 
       <button
         class="secondary"
-        onclick="showScreen('homeScreen')">
-        Back
+        onclick="showScreen('employeeRegister')">
+
+        New Employee? Register
+
       </button>
 
+
+      <button
+        class="back-button"
+        onclick="showScreen('homeScreen')">
+
+        ← Back
+
+      </button>
+
+
       <div id="employeeLoginMessage"></div>
+
     </div>
 
   </section>
 
 
   <!-- EMPLOYEE REGISTER -->
+
   <section id="employeeRegister" class="hidden">
 
     <div class="card">
-      <h2>Employee Registration</h2>
 
-      <label>Employee ID *</label>
-      <input id="regEmployeeId" placeholder="Example: 16174">
+      <div class="card-title">
 
-      <label>Full Name *</label>
-      <input id="regName" placeholder="Employee full name">
+        <div class="card-icon">
+          📝
+        </div>
 
-      <label>Department *</label>
-      <input id="regDepartment" placeholder="Example: PDN">
+        <div>
+          <h2>
+            Employee Registration
+          </h2>
 
-      <label>Designation</label>
-      <input id="regDesignation" placeholder="Designation">
+          <div class="small">
+            Create your employee portal profile.
+          </div>
+        </div>
 
-      <label>Phone</label>
-      <input id="regPhone" inputmode="numeric" placeholder="Mobile number">
+      </div>
 
-      <label>Shift</label>
+
+      <label>
+        Employee ID *
+      </label>
+
+      <input
+        id="regEmployeeId"
+        placeholder="Example: 16174"
+      >
+
+
+      <label>
+        Full Name *
+      </label>
+
+      <input
+        id="regName"
+        placeholder="Employee full name"
+      >
+
+
+      <label>
+        Department *
+      </label>
+
+      <input
+        id="regDepartment"
+        placeholder="Example: PDN"
+      >
+
+
+      <label>
+        Designation
+      </label>
+
+      <input
+        id="regDesignation"
+        placeholder="Designation"
+      >
+
+
+      <label>
+        Phone
+      </label>
+
+      <input
+        id="regPhone"
+        inputmode="numeric"
+        placeholder="Mobile number"
+      >
+
+
+      <label>
+        Shift
+      </label>
+
       <select id="regShift">
-        <option value="">Select Shift</option>
-        <option>7:30 AM - 4:00 PM</option>
-        <option>4:00 PM - 12:30 AM</option>
-        <option>12:30 AM - 7:30 AM</option>
+
+        <option value="">
+          Select Shift
+        </option>
+
+        <option>
+          7:30 AM - 4:00 PM
+        </option>
+
+        <option>
+          4:00 PM - 12:30 AM
+        </option>
+
+        <option>
+          12:30 AM - 7:30 AM
+        </option>
+
       </select>
 
-      <label>Room</label>
-      <input id="regRoom" placeholder="Room number">
+
+      <label>
+        Room
+      </label>
+
+      <input
+        id="regRoom"
+        placeholder="Room number"
+      >
+
 
       <button onclick="registerEmployee()">
-        Register Employee
+        ✓ Register Employee
       </button>
+
 
       <button
-        class="secondary"
+        class="back-button"
         onclick="showScreen('homeScreen')">
-        Back
+
+        ← Back
+
       </button>
 
+
       <div id="registerMessage"></div>
+
     </div>
 
   </section>
 
 
   <!-- EMPLOYEE PORTAL -->
+
   <section id="employeePortal" class="hidden">
 
     <div class="top-actions">
+
       <button onclick="loadEmployee()">
-        Refresh
+        ↻ Refresh
       </button>
 
       <button
         class="secondary"
         onclick="logout()">
+
         Logout
+
       </button>
+
     </div>
 
+
+    <div class="dashboard-head">
+
+      <div class="section-label" style="color:#8ee0ae;">
+        EMPLOYEE PORTAL
+      </div>
+
+      <div class="dashboard-title">
+        My Employee Hub
+      </div>
+
+      <div class="small">
+        Your profile and secure QR identification.
+      </div>
+
+    </div>
+
+
     <div class="card">
-      <h2>My Profile</h2>
+
+      <div class="card-title">
+
+        <div class="card-icon">
+          🪪
+        </div>
+
+        <h2>
+          My Profile
+        </h2>
+
+      </div>
 
       <div id="employeeDetails"></div>
+
     </div>
 
-    <div class="card">
-      <h2>My QR</h2>
 
-      <p class="small">
-        Show this QR to HR for cab entry.
-      </p>
+    <div class="card">
+
+      <div class="card-title">
+
+        <div class="card-icon">
+          📱
+        </div>
+
+        <div>
+          <h2>
+            My QR
+          </h2>
+
+          <div class="small">
+            Show this QR to HR for cab entry.
+          </div>
+        </div>
+
+      </div>
+
 
       <div class="qr-box">
+
+        <div class="qr-label">
+          SECURE EMPLOYEE QR
+        </div>
+
         <div id="qrcode"></div>
+
         <div class="small">
           QR contains a secure employee token.
         </div>
+
       </div>
+
     </div>
 
   </section>
 
 
   <!-- HR LOGIN -->
+
   <section id="hrLogin" class="hidden">
 
     <div class="card">
-      <h2>HR Portal</h2>
 
-      <label>Username</label>
-      <input id="hrUsername" value="hr">
+      <div class="card-title">
 
-      <label>Password</label>
+        <div class="card-icon">
+          🔐
+        </div>
+
+        <div>
+          <h2>
+            HR Portal
+          </h2>
+
+          <div class="small">
+            Authorized HR access only.
+          </div>
+        </div>
+
+      </div>
+
+
+      <label>
+        Username
+      </label>
+
+      <input
+        id="hrUsername"
+        value="hr"
+      >
+
+
+      <label>
+        Password
+      </label>
+
       <input
         id="hrPassword"
         type="password"
         placeholder="Password"
       >
 
+
       <button onclick="hrLogin()">
-        HR Login
+        🔐 HR Login
       </button>
+
 
       <button
-        class="secondary"
+        class="back-button"
         onclick="showScreen('homeScreen')">
-        Back
+
+        ← Back
+
       </button>
 
+
       <div id="hrLoginMessage"></div>
+
     </div>
 
   </section>
 
 
   <!-- HR PORTAL -->
+
   <section id="hrPortal" class="hidden">
 
     <div class="top-actions">
+
       <button onclick="loadDashboard()">
-        Refresh
+        ↻ Refresh
       </button>
 
       <button
         class="secondary"
         onclick="logout()">
+
         Logout
+
       </button>
+
     </div>
 
+
+    <div class="dashboard-head">
+
+      <div class="section-label" style="color:#8ee0ae;">
+        HR CONTROL CENTER
+      </div>
+
+      <div class="dashboard-title">
+        Hostel Hub Dashboard
+      </div>
+
+      <div class="small">
+        Monitor employees and today's cab activity.
+      </div>
+
+    </div>
+
+
+    <!-- DASHBOARD STATS -->
+
     <div class="card">
-      <h2>HR Dashboard</h2>
+
+      <div class="card-title">
+
+        <div class="card-icon">
+          📊
+        </div>
+
+        <h2>
+          Today's Overview
+        </h2>
+
+      </div>
+
 
       <div class="grid">
 
         <div class="stat">
-          <strong id="totalEmployees">0</strong>
-          <span>Total Employees</span>
+
+          <div class="stat-icon">
+            👥
+          </div>
+
+          <strong id="totalEmployees">
+            0
+          </strong>
+
+          <span>
+            Total Employees
+          </span>
+
         </div>
 
+
         <div class="stat">
-          <strong id="totalBoarded">0</strong>
-          <span>Today's Cab Entry</span>
+
+          <div class="stat-icon">
+            🚐
+          </div>
+
+          <strong id="totalBoarded">
+            0
+          </strong>
+
+          <span>
+            Today's Cab Entry
+          </span>
+
         </div>
 
       </div>
+
     </div>
 
 
     <!-- CAB SCANNER -->
-    <div class="card">
 
-      <h2>🚐 Cab QR Scanner</h2>
+    <div class="card scanner-card">
 
-      <label>Cab Number</label>
+      <div class="card-title">
+
+        <div class="card-icon">
+          🚐
+        </div>
+
+        <div>
+          <h2>
+            Cab QR Scanner
+          </h2>
+
+          <div class="small">
+            Scan employee QR to record cab entry.
+          </div>
+        </div>
+
+      </div>
+
+
+      <label>
+        Cab Number
+      </label>
+
       <input
         id="scanCabNo"
         placeholder="Example: TN 38 AB 1234"
       >
 
-      <label>Route</label>
+
+      <label>
+        Route
+      </label>
+
       <input
         id="scanRoute"
         placeholder="Example: Coimbatore → Hostel"
       >
 
+
       <button onclick="startScanner()">
-        Start Scanner
+        📷 Start QR Scanner
       </button>
+
 
       <video
         id="scannerVideo"
@@ -505,12 +1331,16 @@
         playsinline>
       </video>
 
+
       <button
         id="stopScannerBtn"
         class="danger hidden"
         onclick="stopScanner()">
-        Stop Scanner
+
+        ■ Stop Scanner
+
       </button>
+
 
       <div id="scanMessage"></div>
 
@@ -518,69 +1348,154 @@
 
 
     <!-- DEPARTMENT -->
+
     <div class="card">
 
-      <h2>Department-wise</h2>
+      <div class="card-title">
+
+        <div class="card-icon">
+          🏢
+        </div>
+
+        <h2>
+          Department-wise
+        </h2>
+
+      </div>
+
 
       <div id="departmentStats">
-        <p class="small">No data yet.</p>
+
+        <p class="small">
+          No data yet.
+        </p>
+
       </div>
 
     </div>
 
 
     <!-- CAB -->
+
     <div class="card">
 
-      <h2>Cab-wise</h2>
+      <div class="card-title">
+
+        <div class="card-icon">
+          🚐
+        </div>
+
+        <h2>
+          Cab-wise
+        </h2>
+
+      </div>
+
 
       <div id="cabStats">
-        <p class="small">No data yet.</p>
+
+        <p class="small">
+          No data yet.
+        </p>
+
       </div>
 
     </div>
 
 
     <!-- SHIFT -->
+
     <div class="card">
 
-      <h2>Shift-wise</h2>
+      <div class="card-title">
+
+        <div class="card-icon">
+          🕐
+        </div>
+
+        <h2>
+          Shift-wise
+        </h2>
+
+      </div>
+
 
       <div id="shiftStats">
-        <p class="small">No data yet.</p>
+
+        <p class="small">
+          No data yet.
+        </p>
+
       </div>
 
     </div>
 
 
     <!-- EXPORT -->
+
     <div class="card">
 
-      <h2>📊 Documentation</h2>
+      <div class="card-title">
 
-      <p class="small">
-        Download cab entry records for documentation.
-      </p>
+        <div class="card-icon">
+          📥
+        </div>
+
+        <div>
+          <h2>
+            Documentation
+          </h2>
+
+          <div class="small">
+            Download cab entry records.
+          </div>
+        </div>
+
+      </div>
+
 
       <button
         class="success"
         onclick="downloadCabExcel()">
-        Download Excel / CSV
+
+        📊 Download Excel / CSV
+
       </button>
 
     </div>
 
 
     <!-- EMPLOYEES -->
+
     <div class="card">
 
-      <h2>Employees</h2>
+      <div class="card-title">
+
+        <div class="card-icon">
+          👥
+        </div>
+
+        <div>
+          <h2>
+            Employees
+          </h2>
+
+          <div class="small">
+            View registered employees.
+          </div>
+        </div>
+
+      </div>
+
 
       <button
         class="secondary"
         onclick="loadEmployees()">
+
         Load Employees
+
       </button>
+
 
       <div id="employeeTable"></div>
 
@@ -590,16 +1505,19 @@
 
 </main>
 
+
 <footer>
-  TEXMO · Hostel Hub
+  TEXMO · Hostel Hub · Employee & HR Management
 </footer>
 
 
 <!-- QR LIBRARY -->
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <!-- APP LOGIC -->
+
 <script src="./app.js"></script>
 
 </body>
-  </html>
+</html>
