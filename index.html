@@ -32,12 +32,19 @@
 
 body{
   font-family:Arial,Helvetica,sans-serif;
-  background:linear-gradient(180deg,#eef7f1 0%,#f7faf8 45%,#f4f7f5 100%);
+  background:linear-gradient(
+    180deg,
+    #eef7f1 0%,
+    #f7faf8 45%,
+    #f4f7f5 100%
+  );
   color:var(--text);
   min-height:100vh;
 }
 
-button,input,select{
+button,
+input,
+select{
   font-family:inherit;
 }
 
@@ -147,8 +154,14 @@ section{
 }
 
 @keyframes fadeIn{
-  from{opacity:0;transform:translateY(5px)}
-  to{opacity:1;transform:translateY(0)}
+  from{
+    opacity:0;
+    transform:translateY(5px);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
 }
 
 /* HERO */
@@ -296,7 +309,8 @@ label{
   margin:13px 0 6px;
 }
 
-input,select{
+input,
+select{
   width:100%;
   padding:13px 14px;
   border:1px solid #d8e2dc;
@@ -307,7 +321,8 @@ input,select{
   outline:none;
 }
 
-input:focus,select:focus{
+input:focus,
+select:focus{
   border-color:var(--green);
   box-shadow:0 0 0 3px rgba(8,127,63,.08);
   background:#fff;
@@ -411,7 +426,7 @@ input:focus,select:focus{
   color:#fff;
 }
 
-/* PORTAL TAB CONTENT */
+/* PORTAL PAGE */
 
 .portal-page{
   animation:fadeIn .2s ease;
@@ -471,6 +486,11 @@ input:focus,select:focus{
 .badge-red{
   background:#fee2e2;
   color:#991b1b;
+}
+
+.badge-gray{
+  background:#e5e7eb;
+  color:#374151;
 }
 
 /* QR */
@@ -632,6 +652,18 @@ input:focus,select:focus{
   color:#9a3412;
 }
 
+.notice.red{
+  background:#fef2f2;
+  border-color:#fecaca;
+  color:#991b1b;
+}
+
+.notice.blue{
+  background:#eff6ff;
+  border-color:#bfdbfe;
+  color:#1d4ed8;
+}
+
 /* SUCCESS ERROR */
 
 .success-box{
@@ -689,7 +721,8 @@ table{
   min-width:650px;
 }
 
-th,td{
+th,
+td{
   padding:10px;
   border-bottom:1px solid #e8eee9;
   text-align:left;
@@ -701,6 +734,34 @@ th{
   color:#3d5045;
   font-size:10px;
   text-transform:uppercase;
+}
+
+/* INACTIVE EMPLOYEE */
+
+.inactive-card{
+  border:1px solid #fecaca;
+  background:#fffafa;
+}
+
+.status-box{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:13px;
+  border-radius:13px;
+  background:#f8fbf9;
+  border:1px solid var(--border);
+  margin-top:10px;
+}
+
+.status-box strong{
+  font-size:13px;
+}
+
+.status-box span{
+  font-size:10px;
+  color:var(--muted);
 }
 
 /* FOOTER */
@@ -716,6 +777,7 @@ footer{
 /* DESKTOP */
 
 @media(min-width:700px){
+
   main{
     padding-top:25px;
   }
@@ -723,6 +785,7 @@ footer{
   .hero h1{
     font-size:31px;
   }
+
 }
 </style>
 </head>
@@ -730,15 +793,29 @@ footer{
 <body>
 
 <header>
+
   <div class="header-inner">
-    <div class="logo-box">T</div>
+
+    <div class="logo-box">
+      T
+    </div>
 
     <div>
-      <div class="brand">TEXMO · Hostel Hub</div>
-      <div class="sub">Employee & HR Management Portal</div>
+
+      <div class="brand">
+        TEXMO · Hostel Hub
+      </div>
+
+      <div class="sub">
+        Employee & HR Management Portal
+      </div>
+
     </div>
+
   </div>
+
 </header>
+
 
 <main>
 
@@ -749,26 +826,45 @@ footer{
 <section id="homeScreen">
 
   <div class="hero">
-    <div class="hero-tag">TEXMO HOSTEL MANAGEMENT</div>
 
-    <h1>Welcome to Hostel Hub</h1>
+    <div class="hero-tag">
+      TEXMO HOSTEL MANAGEMENT
+    </div>
+
+    <h1>
+      Welcome to Hostel Hub
+    </h1>
 
     <p>
       One place for employee access, hostel information,
       shifts, attendance, cab, food and hostel management.
     </p>
+
   </div>
+
 
   <div class="card">
 
     <div class="card-title">
-      <div class="card-icon">👋</div>
+
+      <div class="card-icon">
+        👋
+      </div>
 
       <div>
-        <h2>Select Portal</h2>
-        <div class="small">Choose how you want to continue.</div>
+
+        <h2>
+          Select Portal
+        </h2>
+
+        <div class="small">
+          Choose how you want to continue.
+        </div>
+
       </div>
+
     </div>
+
 
     <div class="portal-grid">
 
@@ -776,29 +872,49 @@ footer{
         class="portal-button"
         onclick="showScreen('employeeLogin')">
 
-        <div class="portal-icon">👤</div>
+        <div class="portal-icon">
+          👤
+        </div>
 
         <div class="portal-info">
-          <strong>Employee Portal</strong>
-          <span>Personal hostel & employee services</span>
+
+          <strong>
+            Employee Portal
+          </strong>
+
+          <span>
+            Personal hostel & employee services
+          </span>
+
         </div>
 
       </button>
+
 
       <button
         class="portal-button"
         onclick="showScreen('hrLogin')">
 
-        <div class="portal-icon">👨‍💼</div>
+        <div class="portal-icon">
+          👨‍💼
+        </div>
 
         <div class="portal-info">
-          <strong>HR Portal</strong>
-          <span>Management & reporting control center</span>
+
+          <strong>
+            HR Portal
+          </strong>
+
+          <span>
+            Management & reporting control center
+          </span>
+
         </div>
 
       </button>
 
     </div>
+
 
     <button
       class="secondary"
@@ -810,17 +926,22 @@ footer{
 
   </div>
 
+
   <div class="card">
 
-    <div class="section-label">SYSTEM</div>
+    <div class="section-label">
+      SYSTEM
+    </div>
 
     <div class="small">
+
       🔐 Secure employee identification<br>
       🏠 Hostel & room management<br>
       🕐 Shift & attendance management<br>
       🚐 QR-based cab entry<br>
       🍽️ Food management<br>
       📊 HR documentation & reports
+
     </div>
 
   </div>
@@ -837,15 +958,29 @@ footer{
   <div class="card">
 
     <div class="card-title">
-      <div class="card-icon">👤</div>
+
+      <div class="card-icon">
+        👤
+      </div>
 
       <div>
-        <h2>Employee Portal</h2>
-        <div class="small">Enter your employee ID.</div>
+
+        <h2>
+          Employee Portal
+        </h2>
+
+        <div class="small">
+          Enter your employee ID.
+        </div>
+
       </div>
+
     </div>
 
-    <label>Employee ID</label>
+
+    <label>
+      Employee ID
+    </label>
 
     <input
       id="employeeLoginId"
@@ -853,9 +988,11 @@ footer{
       autocomplete="off"
     >
 
+
     <button onclick="employeeLogin()">
       Continue →
     </button>
+
 
     <button
       class="secondary"
@@ -865,6 +1002,7 @@ footer{
 
     </button>
 
+
     <button
       class="back-button"
       onclick="showScreen('homeScreen')">
@@ -872,6 +1010,7 @@ footer{
       ← Back
 
     </button>
+
 
     <div id="employeeLoginMessage"></div>
 
@@ -889,52 +1028,86 @@ footer{
   <div class="card">
 
     <div class="card-title">
-      <div class="card-icon">📝</div>
+
+      <div class="card-icon">
+        📝
+      </div>
 
       <div>
-        <h2>Employee Registration</h2>
+
+        <h2>
+          Employee Registration
+        </h2>
+
         <div class="small">
           Create your employee portal profile.
         </div>
+
       </div>
+
     </div>
 
-    <label>Employee ID *</label>
+
+    <label>
+      Employee ID *
+    </label>
+
     <input
       id="regEmployeeId"
       placeholder="Example: 16174"
     >
 
-    <label>Full Name *</label>
+
+    <label>
+      Full Name *
+    </label>
+
     <input
       id="regName"
       placeholder="Employee full name"
     >
 
-    <label>Department *</label>
+
+    <label>
+      Department *
+    </label>
+
     <input
       id="regDepartment"
       placeholder="Example: PDN"
     >
 
-    <label>Designation</label>
+
+    <label>
+      Designation
+    </label>
+
     <input
       id="regDesignation"
       placeholder="Designation"
     >
 
-    <label>Phone</label>
+
+    <label>
+      Phone
+    </label>
+
     <input
       id="regPhone"
       inputmode="numeric"
       placeholder="Mobile number"
     >
 
-    <label>Shift</label>
+
+    <label>
+      Shift
+    </label>
 
     <select id="regShift">
 
-      <option value="">Select Shift</option>
+      <option value="">
+        Select Shift
+      </option>
 
       <option>
         7:30 AM - 4:00 PM
@@ -950,16 +1123,21 @@ footer{
 
     </select>
 
-    <label>Room</label>
+
+    <label>
+      Room
+    </label>
 
     <input
       id="regRoom"
       placeholder="Room number"
     >
 
+
     <button onclick="registerEmployee()">
       ✓ Register Employee
     </button>
+
 
     <button
       class="back-button"
@@ -968,6 +1146,7 @@ footer{
       ← Back
 
     </button>
+
 
     <div id="registerMessage"></div>
 
@@ -981,6 +1160,7 @@ footer{
 <!-- ========================================================= -->
 
 <section id="employeePortal" class="hidden">
+
 
   <div class="top-actions">
 
@@ -1115,79 +1295,150 @@ footer{
           class="quick-item"
           onclick="employeeTab('empProfile')">
 
-          <div class="icon">🪪</div>
-          <strong>My Profile</strong>
-          <span>Employee details</span>
+          <div class="icon">
+            🪪
+          </div>
+
+          <strong>
+            My Profile
+          </strong>
+
+          <span>
+            Employee details
+          </span>
 
         </div>
+
 
         <div
           class="quick-item"
           onclick="employeeTab('empRoom')">
 
-          <div class="icon">🏠</div>
-          <strong>My Room</strong>
-          <span>Room & occupancy</span>
+          <div class="icon">
+            🏠
+          </div>
+
+          <strong>
+            My Room
+          </strong>
+
+          <span>
+            Room & occupancy
+          </span>
 
         </div>
+
 
         <div
           class="quick-item"
           onclick="employeeTab('empShifts')">
 
-          <div class="icon">🕐</div>
-          <strong>My Shift</strong>
-          <span>Weekly schedule</span>
+          <div class="icon">
+            🕐
+          </div>
+
+          <strong>
+            My Shift
+          </strong>
+
+          <span>
+            Weekly schedule
+          </span>
 
         </div>
+
 
         <div
           class="quick-item"
           onclick="employeeTab('empAttendance')">
 
-          <div class="icon">📋</div>
-          <strong>Attendance</strong>
-          <span>View attendance</span>
+          <div class="icon">
+            📋
+          </div>
+
+          <strong>
+            Attendance
+          </strong>
+
+          <span>
+            View attendance
+          </span>
 
         </div>
+
 
         <div
           class="quick-item"
           onclick="employeeTab('empLeave')">
 
-          <div class="icon">📅</div>
-          <strong>Leave</strong>
-          <span>Request & history</span>
+          <div class="icon">
+            📅
+          </div>
+
+          <strong>
+            Leave
+          </strong>
+
+          <span>
+            Request & history
+          </span>
 
         </div>
+
 
         <div
           class="quick-item"
           onclick="employeeTab('empVacate')">
 
-          <div class="icon">🚪</div>
-          <strong>Vacate</strong>
-          <span>Temporary vacate</span>
+          <div class="icon">
+            🚪
+          </div>
+
+          <strong>
+            Vacate
+          </strong>
+
+          <span>
+            Temporary vacate
+          </span>
 
         </div>
+
 
         <div
           class="quick-item"
           onclick="employeeTab('empFood')">
 
-          <div class="icon">🍽️</div>
-          <strong>Food</strong>
-          <span>Meal entry</span>
+          <div class="icon">
+            🍽️
+          </div>
+
+          <strong>
+            Food
+          </strong>
+
+          <span>
+            Meal entry
+          </span>
 
         </div>
+
 
         <div
           class="quick-item"
           onclick="employeeTab('empQR')">
 
-          <div class="icon">📱</div>
-          <strong>My QR</strong>
-          <span>Cab identification</span>
+          <div class="icon">
+            📱
+          </div>
+
+          <strong>
+            My QR
+          </strong>
+
+          <span>
+            Cab identification
+          </span>
 
         </div>
 
@@ -1195,18 +1446,29 @@ footer{
 
     </div>
 
+
     <div class="card">
 
       <div class="card-title">
-        <div class="card-icon">📢</div>
+
+        <div class="card-icon">
+          📢
+        </div>
 
         <div>
-          <h2>My Status</h2>
+
+          <h2>
+            My Status
+          </h2>
+
           <div class="small">
             Current employee information.
           </div>
+
         </div>
+
       </div>
+
 
       <div id="employeeHomeStatus">
 
@@ -1230,22 +1492,81 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🪪</div>
+        <div class="card-icon">
+          🪪
+        </div>
 
         <div>
-          <h2>My Profile</h2>
+
+          <h2>
+            My Profile
+          </h2>
+
           <div class="small">
             Your registered employee details.
           </div>
+
         </div>
 
       </div>
+
 
       <div id="employeeDetails">
 
         <div class="notice">
           Loading employee profile...
         </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- ACCOUNT STATUS -->
+
+    <div class="card">
+
+      <div class="card-title">
+
+        <div class="card-icon">
+          🟢
+        </div>
+
+        <div>
+
+          <h2>
+            Account Status
+          </h2>
+
+          <div class="small">
+            Current employee profile status.
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="employeeAccountStatus"
+        class="status-box">
+
+        <strong>
+          Employee Account
+        </strong>
+
+        <span class="badge">
+          ACTIVE
+        </span>
+
+      </div>
+
+
+      <div class="notice">
+
+        If your employee profile becomes inactive,
+        employee services may be restricted.
+        Contact HR for reactivation.
 
       </div>
 
@@ -1262,16 +1583,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🏠</div>
+        <div class="card-icon">
+          🏠
+        </div>
 
         <div>
-          <h2>My Room</h2>
+
+          <h2>
+            My Room
+          </h2>
+
           <div class="small">
             Your hostel room and occupancy.
           </div>
+
         </div>
 
       </div>
+
 
       <div id="myRoomDetails">
 
@@ -1306,16 +1635,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📱</div>
+        <div class="card-icon">
+          📱
+        </div>
 
         <div>
-          <h2>My QR</h2>
+
+          <h2>
+            My QR
+          </h2>
+
           <div class="small">
             Use this QR for cab entry.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="qr-box">
 
@@ -1344,29 +1681,44 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🕐</div>
+        <div class="card-icon">
+          🕐
+        </div>
 
         <div>
-          <h2>My Shifts</h2>
+
+          <h2>
+            My Shifts
+          </h2>
+
           <div class="small">
             View and directly update your weekly shift.
           </div>
+
         </div>
 
       </div>
 
+
       <div class="notice green">
 
-        <strong>Current Shift</strong><br>
+        <strong>
+          Current Shift
+        </strong>
+
+        <br>
+
         <span id="employeeCurrentShift">
           Loading...
         </span>
 
       </div>
 
+
       <h3 style="margin-top:18px;">
         This Week Shift
       </h3>
+
 
       <div id="employeeWeeklyShifts">
 
@@ -1375,7 +1727,6 @@ footer{
             <strong>Monday</strong>
             <span>Shift schedule</span>
           </div>
-
           <div class="list-value">--</div>
         </div>
 
@@ -1384,7 +1735,6 @@ footer{
             <strong>Tuesday</strong>
             <span>Shift schedule</span>
           </div>
-
           <div class="list-value">--</div>
         </div>
 
@@ -1393,7 +1743,6 @@ footer{
             <strong>Wednesday</strong>
             <span>Shift schedule</span>
           </div>
-
           <div class="list-value">--</div>
         </div>
 
@@ -1402,7 +1751,6 @@ footer{
             <strong>Thursday</strong>
             <span>Shift schedule</span>
           </div>
-
           <div class="list-value">--</div>
         </div>
 
@@ -1411,7 +1759,6 @@ footer{
             <strong>Friday</strong>
             <span>Shift schedule</span>
           </div>
-
           <div class="list-value">--</div>
         </div>
 
@@ -1420,7 +1767,6 @@ footer{
             <strong>Saturday</strong>
             <span>Shift schedule</span>
           </div>
-
           <div class="list-value">--</div>
         </div>
 
@@ -1429,7 +1775,6 @@ footer{
             <strong>Sunday</strong>
             <span>Shift schedule</span>
           </div>
-
           <div class="list-value">--</div>
         </div>
 
@@ -1442,25 +1787,38 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">✏️</div>
+        <div class="card-icon">
+          ✏️
+        </div>
 
         <div>
-          <h2>Edit Shift</h2>
+
+          <h2>
+            Edit Shift
+          </h2>
+
           <div class="small">
             No approval required.
           </div>
+
         </div>
 
       </div>
 
-      <label>Select Date</label>
+
+      <label>
+        Select Date
+      </label>
 
       <input
         id="employeeShiftDate"
         type="date"
       >
 
-      <label>Select Shift</label>
+
+      <label>
+        Select Shift
+      </label>
 
       <select id="employeeShiftSelect">
 
@@ -1482,9 +1840,11 @@ footer{
 
       </select>
 
+
       <button onclick="saveEmployeeShift()">
         ✓ Save Shift
       </button>
+
 
       <div id="employeeShiftMessage"></div>
 
@@ -1501,16 +1861,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📋</div>
+        <div class="card-icon">
+          📋
+        </div>
 
         <div>
-          <h2>My Attendance</h2>
+
+          <h2>
+            My Attendance
+          </h2>
+
           <div class="small">
             View your work attendance.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="grid">
 
@@ -1540,6 +1908,7 @@ footer{
 
       </div>
 
+
       <div id="myAttendanceHistory">
 
         <div class="notice">
@@ -1561,41 +1930,59 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📅</div>
+        <div class="card-icon">
+          📅
+        </div>
 
         <div>
-          <h2>Leave Request</h2>
+
+          <h2>
+            Leave Request
+          </h2>
+
           <div class="small">
             Submit a leave request to HR.
           </div>
+
         </div>
 
       </div>
 
-      <label>From Date</label>
+
+      <label>
+        From Date
+      </label>
 
       <input
         id="employeeLeaveFrom"
         type="date"
       >
 
-      <label>To Date</label>
+
+      <label>
+        To Date
+      </label>
 
       <input
         id="employeeLeaveTo"
         type="date"
       >
 
-      <label>Reason</label>
+
+      <label>
+        Reason
+      </label>
 
       <input
         id="employeeLeaveReason"
         placeholder="Reason for leave"
       >
 
+
       <button onclick="submitEmployeeLeave()">
         📅 Submit Leave Request
       </button>
+
 
       <div id="employeeLeaveMessage"></div>
 
@@ -1606,11 +1993,16 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📜</div>
+        <div class="card-icon">
+          📜
+        </div>
 
-        <h2>Leave History</h2>
+        <h2>
+          Leave History
+        </h2>
 
       </div>
+
 
       <div id="employeeLeaveHistory">
 
@@ -1633,45 +2025,65 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🚪</div>
+        <div class="card-icon">
+          🚪
+        </div>
 
         <div>
-          <h2>Hostel Vacate</h2>
+
+          <h2>
+            Hostel Vacate
+          </h2>
+
           <div class="small">
             Request temporary hostel vacate.
           </div>
+
         </div>
 
       </div>
 
+
       <div class="notice orange">
 
-        Approved vacate does <strong>not</strong> immediately
-        free the room. The room remains occupied until
+        Approved vacate does <strong>not</strong>
+        immediately free the room.
+
+        The room remains occupied until
         the approved return date.
 
       </div>
 
-      <label>Vacate Date</label>
+
+      <label>
+        Vacate Date
+      </label>
 
       <input
         id="employeeVacateDate"
         type="date"
       >
 
-      <label>Return Date</label>
+
+      <label>
+        Return Date
+      </label>
 
       <input
         id="employeeReturnDate"
         type="date"
       >
 
-      <label>Reason</label>
+
+      <label>
+        Reason
+      </label>
 
       <input
         id="employeeVacateReason"
         placeholder="Reason for temporary vacate"
       >
+
 
       <button
         class="orange"
@@ -1680,6 +2092,7 @@ footer{
         🚪 Submit Vacate Request
 
       </button>
+
 
       <div id="employeeVacateMessage"></div>
 
@@ -1690,11 +2103,16 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📜</div>
+        <div class="card-icon">
+          📜
+        </div>
 
-        <h2>Vacate History</h2>
+        <h2>
+          Vacate History
+        </h2>
 
       </div>
+
 
       <div id="employeeVacateHistory">
 
@@ -1717,50 +2135,99 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🍽️</div>
+        <div class="card-icon">
+          🍽️
+        </div>
 
         <div>
-          <h2>Food Management</h2>
+
+          <h2>
+            Food Management
+          </h2>
+
           <div class="small">
             Scan the common Food QR and select your meal.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="notice green">
 
         🍽️ Food is FREE.<br>
-        Select only your meal after scanning the common
-        Food Management QR.
+
+        Select only your meal after scanning
+        the common Food Management QR.
 
       </div>
 
-      <div class="quick-grid" style="margin-top:13px;">
+
+      <div
+        class="quick-grid"
+        style="margin-top:13px;">
 
         <div class="quick-item">
-          <div class="icon">🌅</div>
-          <strong>Breakfast</strong>
-          <span>7:00 AM - 9:00 AM</span>
+
+          <div class="icon">
+            🌅
+          </div>
+
+          <strong>
+            Breakfast
+          </strong>
+
+          <span>
+            7:00 AM - 9:00 AM
+          </span>
+
         </div>
 
-        <div class="quick-item">
-          <div class="icon">☀️</div>
-          <strong>Lunch</strong>
-          <span>11:30 AM - 2:00 PM</span>
-        </div>
 
         <div class="quick-item">
-          <div class="icon">🌙</div>
-          <strong>Dinner</strong>
-          <span>7:30 PM - 9:00 PM</span>
+
+          <div class="icon">
+            ☀️
+          </div>
+
+          <strong>
+            Lunch
+          </strong>
+
+          <span>
+            11:30 AM - 2:00 PM
+          </span>
+
+        </div>
+
+
+        <div class="quick-item">
+
+          <div class="icon">
+            🌙
+          </div>
+
+          <strong>
+            Dinner
+          </strong>
+
+          <span>
+            7:30 PM - 9:00 PM
+          </span>
+
         </div>
 
       </div>
 
-      <div class="notice" style="margin-top:14px;">
-        Food QR scanning and meal recording will be connected
-        to the database in the next backend step.
+
+      <div
+        class="notice"
+        style="margin-top:14px;">
+
+        Food QR scanning and meal recording
+        will be connected to the database.
+
       </div>
 
     </div>
@@ -1780,19 +2247,28 @@ footer{
 
     <div class="card-title">
 
-      <div class="card-icon">🔐</div>
+      <div class="card-icon">
+        🔐
+      </div>
 
       <div>
-        <h2>HR Portal</h2>
+
+        <h2>
+          HR Portal
+        </h2>
 
         <div class="small">
           Authorized HR access only.
         </div>
+
       </div>
 
     </div>
 
-    <label>Username</label>
+
+    <label>
+      Username
+    </label>
 
     <input
       id="hrUsername"
@@ -1800,7 +2276,10 @@ footer{
       autocomplete="username"
     >
 
-    <label>Password</label>
+
+    <label>
+      Password
+    </label>
 
     <input
       id="hrPassword"
@@ -1809,9 +2288,11 @@ footer{
       autocomplete="current-password"
     >
 
+
     <button onclick="hrLogin()">
       🔐 HR Login
     </button>
+
 
     <button
       class="back-button"
@@ -1820,6 +2301,7 @@ footer{
       ← Back
 
     </button>
+
 
     <div id="hrLoginMessage"></div>
 
@@ -1833,6 +2315,7 @@ footer{
 <!-- ========================================================= -->
 
 <section id="hrPortal" class="hidden">
+
 
   <div class="top-actions">
 
@@ -1961,13 +2444,20 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📊</div>
+        <div class="card-icon">
+          📊
+        </div>
 
         <div>
-          <h2>Today's Overview</h2>
+
+          <h2>
+            Today's Overview
+          </h2>
+
           <div class="small">
             Hostel management summary.
           </div>
+
         </div>
 
       </div>
@@ -2058,16 +2548,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🍽️</div>
+        <div class="card-icon">
+          🍽️
+        </div>
 
         <div>
-          <h2>Food Summary</h2>
+
+          <h2>
+            Food Summary
+          </h2>
+
           <div class="small">
             Today's meal count.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="grid">
 
@@ -2105,12 +2603,24 @@ footer{
     <div class="card">
 
       <div class="card-title">
-        <div class="card-icon">🏢</div>
-        <h2>Department-wise</h2>
+
+        <div class="card-icon">
+          🏢
+        </div>
+
+        <h2>
+          Department-wise
+        </h2>
+
       </div>
 
+
       <div id="departmentStats">
-        <p class="small">No data yet.</p>
+
+        <p class="small">
+          No data yet.
+        </p>
+
       </div>
 
     </div>
@@ -2121,12 +2631,24 @@ footer{
     <div class="card">
 
       <div class="card-title">
-        <div class="card-icon">🚐</div>
-        <h2>Cab-wise</h2>
+
+        <div class="card-icon">
+          🚐
+        </div>
+
+        <h2>
+          Cab-wise
+        </h2>
+
       </div>
 
+
       <div id="cabStats">
-        <p class="small">No data yet.</p>
+
+        <p class="small">
+          No data yet.
+        </p>
+
       </div>
 
     </div>
@@ -2137,12 +2659,24 @@ footer{
     <div class="card">
 
       <div class="card-title">
-        <div class="card-icon">🕐</div>
-        <h2>Shift-wise Cab</h2>
+
+        <div class="card-icon">
+          🕐
+        </div>
+
+        <h2>
+          Shift-wise Cab
+        </h2>
+
       </div>
 
+
       <div id="shiftStats">
-        <p class="small">No data yet.</p>
+
+        <p class="small">
+          No data yet.
+        </p>
+
       </div>
 
     </div>
@@ -2160,22 +2694,55 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">👥</div>
+        <div class="card-icon">
+          👥
+        </div>
 
         <div>
-          <h2>Employees</h2>
+
+          <h2>
+            Employees
+          </h2>
+
           <div class="small">
             View, search and manage employees.
           </div>
+
         </div>
 
       </div>
+
 
       <input
         id="hrEmployeeSearch"
         placeholder="Search Employee ID or Name"
         oninput="filterHREmployees()"
       >
+
+
+      <label>
+        Employee Status
+      </label>
+
+
+      <select
+        id="hrEmployeeStatusFilter"
+        onchange="filterHREmployees()">
+
+        <option value="all">
+          All Employees
+        </option>
+
+        <option value="active">
+          Active Employees
+        </option>
+
+        <option value="inactive">
+          Inactive Employees
+        </option>
+
+      </select>
+
 
       <button
         class="secondary"
@@ -2185,7 +2752,84 @@ footer{
 
       </button>
 
-      <div id="employeeTable"></div>
+
+      <div id="employeeTable">
+
+        <div class="notice">
+          Employee records will appear here.
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- EMPLOYEE PROFILE MANAGEMENT -->
+
+    <div class="card">
+
+      <div class="card-title">
+
+        <div class="card-icon">
+          ⚙️
+        </div>
+
+        <div>
+
+          <h2>
+            Employee Profile Management
+          </h2>
+
+          <div class="small">
+            Manage employee account status.
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="notice blue">
+
+        Employee records should be made
+        <strong>Inactive</strong> instead of permanently deleted.
+
+        This keeps historical attendance,
+        cab, leave, room and other records.
+
+      </div>
+
+
+      <div class="status-box">
+
+        <div>
+
+          <strong>
+            Account Status
+          </strong>
+
+          <div class="small">
+            Active employees can use the portal.
+          </div>
+
+        </div>
+
+        <span class="badge">
+          ACTIVE
+        </span>
+
+      </div>
+
+
+      <div class="notice orange">
+
+        Deactivate / Reactivate controls will be
+        connected to the database in the next backend step.
+
+      </div>
+
+
+      <div id="employeeManagementMessage"></div>
 
     </div>
 
@@ -2202,16 +2846,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🏠</div>
+        <div class="card-icon">
+          🏠
+        </div>
 
         <div>
-          <h2>Room Management</h2>
+
+          <h2>
+            Room Management
+          </h2>
+
           <div class="small">
             BookMyShow-style visual occupancy.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="notice green">
 
@@ -2222,6 +2874,7 @@ footer{
 
       </div>
 
+
       <div id="hrRoomList">
 
         <div class="notice">
@@ -2229,6 +2882,7 @@ footer{
         </div>
 
       </div>
+
 
       <button
         class="success"
@@ -2253,21 +2907,30 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🕐</div>
+        <div class="card-icon">
+          🕐
+        </div>
 
         <div>
-          <h2>Shift Management</h2>
+
+          <h2>
+            Shift Management
+          </h2>
+
           <div class="small">
             Monitor employee current and weekly shifts.
           </div>
+
         </div>
 
       </div>
+
 
       <input
         id="hrShiftSearch"
         placeholder="Search employee"
       >
+
 
       <select id="hrShiftFilter">
 
@@ -2289,6 +2952,7 @@ footer{
 
       </select>
 
+
       <div id="hrShiftList">
 
         <div class="notice">
@@ -2296,6 +2960,7 @@ footer{
         </div>
 
       </div>
+
 
       <button
         class="success"
@@ -2320,25 +2985,38 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📋</div>
+        <div class="card-icon">
+          📋
+        </div>
 
         <div>
-          <h2>Attendance</h2>
+
+          <h2>
+            Attendance
+          </h2>
+
           <div class="small">
             Present, absent and approved leave.
           </div>
+
         </div>
 
       </div>
 
-      <label>Select Date</label>
+
+      <label>
+        Select Date
+      </label>
 
       <input
         id="hrAttendanceDate"
         type="date"
       >
 
-      <div class="grid" style="margin-top:12px;">
+
+      <div
+        class="grid"
+        style="margin-top:12px;">
 
         <div class="stat">
           <strong id="hrPresentCount">0</strong>
@@ -2362,6 +3040,7 @@ footer{
 
       </div>
 
+
       <div id="hrAttendanceTable">
 
         <div class="notice">
@@ -2369,6 +3048,7 @@ footer{
         </div>
 
       </div>
+
 
       <button
         class="success"
@@ -2393,40 +3073,56 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🚐</div>
+        <div class="card-icon">
+          🚐
+        </div>
 
         <div>
-          <h2>Cab QR Scanner</h2>
+
+          <h2>
+            Cab QR Scanner
+          </h2>
+
           <div class="small">
             Scan employee QR to record cab entry.
           </div>
+
         </div>
 
       </div>
 
-      <label>Cab Number</label>
+
+      <label>
+        Cab Number
+      </label>
 
       <input
         id="scanCabNo"
         placeholder="Cab 1"
       >
 
-      <label>Route</label>
+
+      <label>
+        Route
+      </label>
 
       <input
         id="scanRoute"
         placeholder="Example: Coimbatore → Hostel"
       >
 
+
       <button onclick="startScanner()">
         📷 Start QR Scanner
       </button>
+
 
       <video
         id="scannerVideo"
         class="hidden"
         playsinline>
       </video>
+
 
       <button
         id="stopScannerBtn"
@@ -2437,6 +3133,7 @@ footer{
 
       </button>
 
+
       <div id="scanMessage"></div>
 
     </div>
@@ -2446,16 +3143,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📊</div>
+        <div class="card-icon">
+          📊
+        </div>
 
         <div>
-          <h2>Cab Records</h2>
+
+          <h2>
+            Cab Records
+          </h2>
+
           <div class="small">
             5 cabs · 20 seats each · 100 entries maximum.
           </div>
+
         </div>
 
       </div>
+
 
       <div id="cabEntriesTable">
 
@@ -2464,6 +3169,7 @@ footer{
         </div>
 
       </div>
+
 
       <button
         class="success"
@@ -2488,16 +3194,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📅</div>
+        <div class="card-icon">
+          📅
+        </div>
 
         <div>
-          <h2>Leave Management</h2>
+
+          <h2>
+            Leave Management
+          </h2>
+
           <div class="small">
             Approve, reject and track employee leave.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="grid">
 
@@ -2523,6 +3237,7 @@ footer{
 
       </div>
 
+
       <div id="hrLeaveList">
 
         <div class="notice">
@@ -2530,6 +3245,7 @@ footer{
         </div>
 
       </div>
+
 
       <button
         class="success"
@@ -2554,16 +3270,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🚪</div>
+        <div class="card-icon">
+          🚪
+        </div>
 
         <div>
-          <h2>Vacate Management</h2>
+
+          <h2>
+            Vacate Management
+          </h2>
+
           <div class="small">
             Temporary hostel vacate tracking.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="grid">
 
@@ -2589,11 +3313,13 @@ footer{
 
       </div>
 
+
       <div class="notice orange">
 
         ⚠️ Overdue status appears on the 5th day.
 
       </div>
+
 
       <div id="hrVacateList">
 
@@ -2602,6 +3328,7 @@ footer{
         </div>
 
       </div>
+
 
       <button
         class="success"
@@ -2626,16 +3353,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">🍽️</div>
+        <div class="card-icon">
+          🍽️
+        </div>
 
         <div>
-          <h2>Food Management</h2>
+
+          <h2>
+            Food Management
+          </h2>
+
           <div class="small">
             Daily food count and employee records.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="grid">
 
@@ -2672,16 +3407,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📱</div>
+        <div class="card-icon">
+          📱
+        </div>
 
         <div>
-          <h2>Food Management QR</h2>
+
+          <h2>
+            Food Management QR
+          </h2>
+
           <div class="small">
             Common QR for employees.
           </div>
+
         </div>
 
       </div>
+
 
       <div class="qr-box">
 
@@ -2689,16 +3432,21 @@ footer{
           TEXMO FOOD MANAGEMENT
         </div>
 
+
         <div id="foodManagementQR">
           Food QR will be generated here.
         </div>
 
+
         <div class="small">
-          Employee scans this common QR and selects
-          Breakfast, Lunch or Dinner.
+
+          Employee scans this common QR and
+          selects Breakfast, Lunch or Dinner.
+
         </div>
 
       </div>
+
 
       <button onclick="generateFoodQR()">
         🔄 Generate Food QR
@@ -2711,16 +3459,24 @@ footer{
 
       <div class="card-title">
 
-        <div class="card-icon">📜</div>
+        <div class="card-icon">
+          📜
+        </div>
 
         <div>
-          <h2>Food Records</h2>
+
+          <h2>
+            Food Records
+          </h2>
+
           <div class="small">
             Employee-wise daily food records.
           </div>
+
         </div>
 
       </div>
+
 
       <div id="hrFoodTable">
 
@@ -2729,6 +3485,7 @@ footer{
         </div>
 
       </div>
+
 
       <button
         class="success"
@@ -2752,207 +3509,196 @@ TEXMO · Hostel Hub · Employee & HR Management
 </footer>
 
 
+<!-- ========================================================= -->
 <!-- QR LIBRARY -->
+<!-- ========================================================= -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-<!-- APP LOGIC -->
+
+<!-- ========================================================= -->
+<!-- MAIN APP LOGIC -->
+<!-- ========================================================= -->
 
 <script src="./app.js"></script>
 
 
-<script>
+<!-- ========================================================= -->
+<!-- UI NAVIGATION ONLY -->
+<!-- IMPORTANT:
+     Do NOT define backend functions here.
+     app.js owns Leave, Vacate, Shift, Food, etc.
+     ========================================================= -->
 
-/* =========================================================
-   PORTAL NAVIGATION
-   ========================================================= */
+<script>
 
 function employeeTab(id, button){
 
-  document.querySelectorAll(
-    '#employeePortal .portal-page'
-  ).forEach(page => {
-    page.classList.add('hidden');
-  });
+  document
+    .querySelectorAll(
+      '#employeePortal .portal-page'
+    )
+    .forEach(page => {
 
-  const target = document.getElementById(id);
+      page.classList.add('hidden');
+
+    });
+
+
+  const target =
+    document.getElementById(id);
+
 
   if(target){
+
     target.classList.remove('hidden');
+
   }
 
-  document.querySelectorAll(
-    '#employeePortal .tab'
-  ).forEach(tab => {
-    tab.classList.remove('active');
-  });
+
+  document
+    .querySelectorAll(
+      '#employeePortal .tab'
+    )
+    .forEach(tab => {
+
+      tab.classList.remove('active');
+
+    });
+
 
   if(button){
+
     button.classList.add('active');
+
   }
+
 
   window.scrollTo({
     top:0,
     behavior:'smooth'
   });
+
 }
 
 
 function hrTab(id, button){
 
-  document.querySelectorAll(
-    '#hrPortal .portal-page'
-  ).forEach(page => {
-    page.classList.add('hidden');
-  });
+  document
+    .querySelectorAll(
+      '#hrPortal .portal-page'
+    )
+    .forEach(page => {
 
-  const target = document.getElementById(id);
+      page.classList.add('hidden');
+
+    });
+
+
+  const target =
+    document.getElementById(id);
+
 
   if(target){
+
     target.classList.remove('hidden');
+
   }
 
-  document.querySelectorAll(
-    '#hrPortal .tab'
-  ).forEach(tab => {
-    tab.classList.remove('active');
-  });
+
+  document
+    .querySelectorAll(
+      '#hrPortal .tab'
+    )
+    .forEach(tab => {
+
+      tab.classList.remove('active');
+
+    });
+
 
   if(button){
+
     button.classList.add('active');
+
   }
+
 
   window.scrollTo({
     top:0,
     behavior:'smooth'
   });
+
 }
 
 
 /* =========================================================
-   TEMPORARY SAFE FUNCTIONS
-   New backend connections will replace these.
+   HR EMPLOYEE SEARCH + STATUS FILTER
    ========================================================= */
-
-function saveEmployeeShift(){
-
-  const message =
-    document.getElementById('employeeShiftMessage');
-
-  if(message){
-
-    message.innerHTML =
-      '<div class="success-box">' +
-      'Shift selection saved in the portal UI. ' +
-      'Database connection will be added in the next step.' +
-      '</div>';
-
-  }
-
-}
-
-
-function submitEmployeeLeave(){
-
-  const message =
-    document.getElementById('employeeLeaveMessage');
-
-  if(message){
-
-    message.innerHTML =
-      '<div class="success-box">' +
-      'Leave request form is ready. ' +
-      'Backend approval flow will be connected next.' +
-      '</div>';
-
-  }
-
-}
-
-
-function submitEmployeeVacate(){
-
-  const message =
-    document.getElementById('employeeVacateMessage');
-
-  if(message){
-
-    message.innerHTML =
-      '<div class="success-box">' +
-      'Vacate request form is ready. ' +
-      'HR approval and return tracking will be connected next.' +
-      '</div>';
-
-  }
-
-}
-
-
-function generateFoodQR(){
-
-  const box =
-    document.getElementById('foodManagementQR');
-
-  if(!box) return;
-
-  box.innerHTML='';
-
-  if(typeof QRCode !== 'undefined'){
-
-    new QRCode(box,{
-      text:window.location.origin + '/food',
-      width:200,
-      height:200
-    });
-
-  }else{
-
-    box.innerHTML =
-      '<div class="notice">QR library loading...</div>';
-
-  }
-
-}
-
-
-function downloadRoomsExcel(){
-  alert('Rooms Excel will be connected next.');
-}
-
-function downloadShiftsExcel(){
-  alert('Shifts Excel will be connected next.');
-}
-
-function downloadAttendanceExcel(){
-  alert('Attendance Excel will be connected next.');
-}
-
-function downloadLeaveExcel(){
-  alert('Leave Excel will be connected next.');
-}
-
-function downloadVacateExcel(){
-  alert('Vacate Excel will be connected next.');
-}
-
-function downloadFoodExcel(){
-  alert('Food Excel will be connected next.');
-}
 
 function filterHREmployees(){
 
   const input =
-    document.getElementById('hrEmployeeSearch');
+    document.getElementById(
+      'hrEmployeeSearch'
+    );
 
-  const value =
-    input ? input.value.toLowerCase() : '';
+
+  const statusFilter =
+    document.getElementById(
+      'hrEmployeeStatusFilter'
+    );
+
+
+  const search =
+    input
+      ? input.value.toLowerCase().trim()
+      : '';
+
+
+  const status =
+    statusFilter
+      ? statusFilter.value.toLowerCase()
+      : 'all';
+
 
   document
-    .querySelectorAll('#employeeTable tbody tr')
+    .querySelectorAll(
+      '#employeeTable tbody tr'
+    )
     .forEach(row => {
 
+      const text =
+        row.innerText.toLowerCase();
+
+
+      const searchMatch =
+        !search ||
+        text.includes(search);
+
+
+      let statusMatch = true;
+
+
+      if(status === 'active'){
+
+        statusMatch =
+          text.includes('active') &&
+          !text.includes('inactive');
+
+      }
+
+
+      if(status === 'inactive'){
+
+        statusMatch =
+          text.includes('inactive');
+
+      }
+
+
       row.style.display =
-        row.innerText.toLowerCase().includes(value)
+        searchMatch && statusMatch
           ? ''
           : 'none';
 
