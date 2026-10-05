@@ -5,6 +5,7 @@ let scannerStream = null;
 let scannerTimer = null;
 let scannerDetector = null;
 let scannerBusy = false;
+let jsQRLoaded = false;
 
 /* =========================
    COMMON HELPERS
@@ -110,6 +111,7 @@ function showScreen(id) {
 
   if (screen) {
     screen.classList.remove("hidden");
+
     window.scrollTo({
       top: 0,
       behavior: "smooth"
@@ -471,7 +473,14 @@ function renderMyRoom(data) {
 
   const room = data.room || {};
 
+  /*
+    IMPORTANT:
+    HTML uses #myRoomDetails.
+    This ID must be included here.
+  */
+
   const target = firstElement([
+    "myRoomDetails",
     "myRoomContent",
     "employeeRoomContent",
     "roomDetails",
@@ -504,7 +513,11 @@ function renderMyRoom(data) {
       <div class="profile-row">
         <span class="profile-label">Room</span>
         <span class="profile-value">
-          ${escapeHtml(room.room_no || currentEmployee?.room || "-")}
+          ${escapeHtml(
+            room.room_no ||
+            currentEmployee?.room ||
+            "-"
+          )}
         </span>
       </div>
 
@@ -588,7 +601,14 @@ function renderMyRoom(data) {
 
 function renderMyRoomError(error) {
 
+  /*
+    IMPORTANT:
+    HTML uses #myRoomDetails.
+    Error rendering must use the same target.
+  */
+
   const target = firstElement([
+    "myRoomDetails",
     "myRoomContent",
     "employeeRoomContent",
     "roomDetails",
@@ -1527,7 +1547,6 @@ async function scanFrameWithJsQR() {
 
 
 async function handleDetectedQR(qrToken) {
-
   await processCabScan(qrToken);
 }
 
@@ -1732,61 +1751,48 @@ async function loadEmployees() {
 ========================= */
 
 function downloadCabExcel() {
-
   window.open(
     API + "/api/cab/export",
     "_blank"
   );
 }
 
-
 function downloadRoomsExcel() {
-
   window.open(
     API + "/api/rooms/export",
     "_blank"
   );
 }
 
-
 function downloadShiftsExcel() {
-
   window.open(
     API + "/api/shifts/export",
     "_blank"
   );
 }
 
-
 function downloadAttendanceExcel() {
-
   window.open(
     API + "/api/attendance/export",
     "_blank"
   );
 }
 
-
 function downloadLeaveExcel() {
-
   window.open(
     API + "/api/leave/export",
     "_blank"
   );
 }
 
-
 function downloadVacateExcel() {
-
   window.open(
     API + "/api/vacate/export",
     "_blank"
   );
 }
 
-
 function downloadFoodExcel() {
-
   window.open(
     API + "/api/food/export",
     "_blank"
@@ -1916,41 +1922,32 @@ async function saveEmployeeShift() {
 
 
 /* =========================
-   PLACEHOLDER SAFE FUNCTIONS
+   EMPLOYEE TAB HELPER
 ========================= */
 
 function texmoEmployeeTab(tab) {
 
-  /*
-     Existing HTML navigation is preserved.
-     This function additionally loads data
-     whenever employee opens a relevant tab.
-  */
-
-  if (tab === "room" ||
-      tab === "myroom") {
-
+  if (
+    tab === "room" ||
+    tab === "myroom"
+  ) {
     loadMyRoom();
   }
 
   if (tab === "leave") {
-
     loadEmployeeLeave();
   }
 
   if (tab === "vacate") {
-
     loadEmployeeVacate();
     loadEmployeeCheckin();
   }
 
   if (tab === "attendance") {
-
     loadEmployeeAttendance();
   }
 
   if (tab === "food") {
-
     generateFoodQR();
   }
 }
@@ -2066,14 +2063,6 @@ function logout() {
 
 function bindTexmoFunctions() {
 
-  /*
-    Power HTML has some old placeholder
-    functions at the bottom.
-
-    These assignments make the real
-    app.js functions active after page load.
-  */
-
   window.submitEmployeeLeave =
     submitEmployeeLeave;
 
@@ -2159,11 +2148,6 @@ window.addEventListener(
       }
 
     }
-
-    /*
-      Food QR can be generated whenever
-      HR opens the Food section.
-    */
 
     const foodBox =
       firstElement([
