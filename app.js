@@ -1,4 +1,4 @@
-const API = "";
+const API = ""; 
 
 let currentEmployee = null;
 let scannerStream = null;
@@ -9,2735 +9,3801 @@ let jsQRLoaded = false;
 
 
 /* =========================
-   COMMON HELPERS
-========================= */
+COMMON HELPERS
+========================= */ 
 
-function $(id) {
-  return document.getElementById(id);
-}
-
-function firstElement(ids) {
-  for (const id of ids) {
-    const el = $(id);
-    if (el) return el;
-  }
-  return null;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function message(id, text, type = "success") {
-  const box = $(id);
-  if (!box) return;
-
-  box.innerHTML = `
-    <div class="${
-      type === "error"
-        ? "error-box"
-        : "success-box"
-    }">
-      ${escapeHtml(text)}
-    </div>
-  `;
-}
-
-async function api(path, options = {}) {
-  const response = await fetch(API + path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    }
-  });
-
-  const data = await response.json().catch(() => ({
-    success: false,
-    error: "Invalid server response"
-  }));
-
-  if (!response.ok && data.success !== true) {
-    throw new Error(
-      data.error || "Request failed"
-    );
-  }
-
-  return data;
-}
-
-function getValue(ids) {
-  const el = firstElement(ids);
-  return el ? el.value.trim() : "";
-}
-
-function getSelectValue(ids) {
-  const el = firstElement(ids);
-  return el ? el.value : "";
-}
-
-function setText(ids, value) {
-  const el = firstElement(ids);
-  if (el) el.textContent = value ?? "-";
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("en-IN");
-}
-
-function formatDateTime(value) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString("en-IN");
+function $`(id) {
+return document.getElementById(id);
 }
 
 
-/* =========================
-   SCREEN CONTROL
-========================= */
+function firstElement(ids) { 
 
-function showScreen(id) {
-  document
-    .querySelectorAll("main > section")
-    .forEach(section => {
-      section.classList.add("hidden");
-    });
+for (const id of ids) { 
 
-  const screen = $(id);
+const el = `$(id); 
 
-  if (screen) {
-    screen.classList.remove("hidden");
+if (el) return el;
+} 
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
-  }
+return null;
 }
 
 
-/* =========================
-   EMPLOYEE LOGIN
-========================= */
+function escapeHtml(value) { 
 
-async function employeeLogin() {
-
-  const employeeId = getValue([
-    "employeeLoginId",
-    "loginEmployeeId"
-  ]);
-
-  if (!employeeId) {
-    message(
-      "employeeLoginMessage",
-      "Enter Employee ID",
-      "error"
-    );
-    return;
-  }
-
-  try {
-
-    const data = await api(
-      `/api/employees/${encodeURIComponent(
-        employeeId
-      )}`
-    );
-
-    currentEmployee = data.employee;
-
-    localStorage.setItem(
-      "texmo_employee_id",
-      currentEmployee.employee_id
-    );
-
-    showScreen("employeePortal");
-
-    renderEmployee();
-
-    await loadMyRoom();
-    await loadEmployeeLeave();
-    await loadEmployeeVacate();
-    await loadEmployeeCheckin();
-
-  } catch (error) {
-
-    message(
-      "employeeLoginMessage",
-      error.message,
-      "error"
-    );
-  }
+return String(value ?? "")
+.replaceAll("&", "&")
+.replaceAll("<", "<")
+.replaceAll(">", ">")
+.replaceAll('"', """)
+.replaceAll("'", "'");
 }
 
 
-/* =========================
-   EMPLOYEE REGISTRATION
-========================= */
+function message(
+id,
+text,
+type = "success"
+) { 
 
-async function registerEmployee() {
+const box = $`(id); 
 
-  const data = {
+if (!box) return; 
 
-    employee_id:
-      getValue(["regEmployeeId"]),
-
-    name:
-      getValue(["regName"]),
-
-    department:
-      getValue(["regDepartment"]),
-
-    designation:
-      getValue(["regDesignation"]),
-
-    phone:
-      getValue(["regPhone"]),
-
-    shift:
-      getSelectValue(["regShift"]),
-
-    room:
-      getValue(["regRoom"])
-  };
-
-  if (
-    !data.employee_id ||
-    !data.name ||
-    !data.department
-  ) {
-
-    message(
-      "registerMessage",
-      "Employee ID, Name and Department are required",
-      "error"
-    );
-
-    return;
-  }
-
-  try {
-
-    const result = await api(
-      "/api/employees/register",
-      {
-        method: "POST",
-        body: JSON.stringify(data)
-      }
-    );
-
-    message(
-      "registerMessage",
-      "Registration successful. Employee ID: " +
-      result.employee_id
-    );
-
-    setTimeout(() => {
-
-      const loginInput =
-        firstElement([
-          "employeeLoginId",
-          "loginEmployeeId"
-        ]);
-
-      if (loginInput) {
-        loginInput.value =
-          result.employee_id;
-      }
-
-      showScreen("employeeLogin");
-
-    }, 1000);
-
-  } catch (error) {
-
-    message(
-      "registerMessage",
-      error.message,
-      "error"
-    );
-  }
+box.innerHTML = &lt;div class="${
+type === "error"
+? "error-box"
+: "success-box"
+}">
+${escapeHtml(text)} &lt;/div&gt;;
 }
 
 
-/* =========================
-   LOAD EMPLOYEE
-========================= */
+async function api(
+path,
+options = {}
+) { 
 
-async function loadEmployee() {
+const response =
+await fetch(
+API + path,
+{
+...options, 
 
-  const employeeId =
-    localStorage.getItem(
-      "texmo_employee_id"
-    );
+headers: {
+"Content-Type":
+"application/json", 
 
-  if (!employeeId) {
-    showScreen("employeeLogin");
-    return;
-  }
+...(options.headers || {})
+}
+}
+);
 
-  try {
 
-    const data = await api(
-      `/api/employees/${encodeURIComponent(
-        employeeId
-      )}`
-    );
+const data =
+await response
+.json()
+.catch(() => ({
+success: false,
+error:
+"Invalid server response"
+}));
 
-    currentEmployee =
-      data.employee;
 
-    renderEmployee();
+if (
+!response.ok &&
+data.success !== true
+) { 
 
-    await loadMyRoom();
-    await loadEmployeeLeave();
-    await loadEmployeeVacate();
-    await loadEmployeeCheckin();
-
-  } catch (error) {
-
-    localStorage.removeItem(
-      "texmo_employee_id"
-    );
-
-    currentEmployee = null;
-
-    message(
-      "employeeLoginMessage",
-      error.message,
-      "error"
-    );
-
-    showScreen("employeeLogin");
-  }
+throw new Error(
+data.error ||
+"Request failed"
+);
 }
 
 
-/* =========================
-   EMPLOYEE PROFILE
-========================= */
-
-function renderEmployee() {
-
-  if (!currentEmployee) return;
-
-  const employee =
-    currentEmployee;
-
-  const box =
-    firstElement([
-      "employeeDetails",
-      "employeeProfile",
-      "profileDetails"
-    ]);
-
-  if (box) {
-
-    box.innerHTML = `
-
-      <div class="employee-card">
-
-        <strong class="profile-name">
-          ${escapeHtml(employee.name)}
-        </strong>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Employee ID
-          </span>
-
-          <span class="profile-value">
-            ${escapeHtml(
-              employee.employee_id
-            )}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Department
-          </span>
-
-          <span class="profile-value">
-            ${escapeHtml(
-              employee.department
-            )}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Designation
-          </span>
-
-          <span class="profile-value">
-            ${escapeHtml(
-              employee.designation || "-"
-            )}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Phone
-          </span>
-
-          <span class="profile-value">
-            ${escapeHtml(
-              employee.phone || "-"
-            )}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Shift
-          </span>
-
-          <span class="profile-value">
-            ${escapeHtml(
-              employee.shift || "-"
-            )}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Room
-          </span>
-
-          <span class="profile-value">
-            ${escapeHtml(
-              employee.room || "-"
-            )}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Bed
-          </span>
-
-          <span class="profile-value">
-            ${escapeHtml(
-              employee.bed_no || "-"
-            )}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Hostel Status
-          </span>
-
-          <span class="profile-value">
-            <span class="badge">
-              ${escapeHtml(
-                employee.hostel_status || "IN"
-              )}
-            </span>
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="profile-label">
-            Account Status
-          </span>
-
-          <span class="profile-value">
-            <span class="badge">
-              ${escapeHtml(
-                employee.status || "-"
-              )}
-            </span>
-          </span>
-        </div>
-
-      </div>
-    `;
-  }
-
-  createEmployeeQR(
-    employee.qr_token
-  );
-       }
-/* =========================
-   MY ROOM
-========================= */
-
-async function loadMyRoom() {
-  if (!currentEmployee) return;
-
-  try {
-    const data = await api(
-      `/api/employee-room/${encodeURIComponent(currentEmployee.employee_id)}`
-    );
-
-    renderMyRoom(data);
-  } catch (error) {
-    console.error("My Room loading error:", error);
-  }
-}
-
-function renderMyRoom(data) {
-  const target = firstElement([
-    "myRoomDetails",
-    "employeeRoomDetails",
-    "myRoom"
-  ]);
-
-  if (!target) return;
-
-  if (!data || !data.employee) {
-    target.innerHTML =
-      '<div class="empty-box">Room details not available.</div>';
-    return;
-  }
-
-  const employee = data.employee;
-  const room = data.room || {};
-
-  target.innerHTML = `
-    <div class="room-card">
-      <div class="room-title">🏠 My Room</div>
-
-      <div class="room-info">
-        <div>
-          <span>Employee ID</span>
-          <strong>${escapeHTML(employee.employee_id || "-")}</strong>
-        </div>
-
-        <div>
-          <span>Name</span>
-          <strong>${escapeHTML(employee.name || "-")}</strong>
-        </div>
-
-        <div>
-          <span>Block</span>
-          <strong>${escapeHTML(room.block || "-")}</strong>
-        </div>
-
-        <div>
-          <span>Room</span>
-          <strong>${escapeHTML(room.room_no || "-")}</strong>
-        </div>
-
-        <div>
-          <span>Bed</span>
-          <strong>${escapeHTML(employee.bed_no || "-")}</strong>
-        </div>
-
-        <div>
-          <span>Status</span>
-          <strong>${escapeHTML(employee.hostel_status || "-")}</strong>
-        </div>
-      </div>
-    </div>
-  `;
+return data;
 }
 
 
-/* =========================
-   LEAVE
-========================= */
+function getValue(ids) { 
 
-async function submitEmployeeLeave() {
-  if (!currentEmployee) {
-    message("leaveMessage", "Please login first", "error");
-    return;
-  }
+const el =
+firstElement(ids); 
 
-  const fromDate = getValue([
-    "leaveFromDate",
-    "employeeLeaveFromDate",
-    "leaveStartDate"
-  ]);
-
-  const toDate = getValue([
-    "leaveToDate",
-    "employeeLeaveToDate",
-    "leaveEndDate"
-  ]);
-
-  const reason = getValue([
-    "leaveReason",
-    "employeeLeaveReason"
-  ]);
-
-  const roomVacate = getValue([
-    "leaveRoomVacate",
-    "roomVacate",
-    "employeeRoomVacate"
-  ]);
-
-  if (!fromDate || !toDate) {
-    message(
-      "leaveMessage",
-      "Select leave start date and end date",
-      "error"
-    );
-    return;
-  }
-
-  try {
-    const result = await api("/api/leave", {
-      method: "POST",
-
-      body: JSON.stringify({
-        employee_id: currentEmployee.employee_id,
-        from_date: fromDate,
-        to_date: toDate,
-        reason: reason,
-        room_vacate: roomVacate
-      })
-    });
-
-    message(
-      "leaveMessage",
-      result.message || "Leave request submitted."
-    );
-
-    await loadEmployeeLeave();
-
-  } catch (error) {
-    message(
-      "leaveMessage",
-      error.message,
-      "error"
-    );
-  }
+return el
+? el.value.trim()
+: "";
 }
 
 
-async function loadEmployeeLeave() {
-  if (!currentEmployee) return;
+function getSelectValue(ids) { 
 
-  try {
-    const data = await api(
-      `/api/leave/${encodeURIComponent(
-        currentEmployee.employee_id
-      )}`
-    );
+const el =
+firstElement(ids); 
 
-    renderEmployeeLeave(data.leaves || []);
-
-  } catch (error) {
-    console.error("Leave loading error:", error);
-  }
+return el
+? el.value
+: "";
 }
 
 
-function renderEmployeeLeave(leaves) {
-  const target = firstElement([
-    "leaveHistory",
-    "employeeLeaveHistory",
-    "leaveList"
-  ]);
+function setText(ids, value) { 
 
-  if (!target) return;
+const el =
+firstElement(ids); 
 
-  if (!leaves.length) {
-    target.innerHTML =
-      '<div class="empty-box">No leave records found.</div>';
-    return;
-  }
-
-  target.innerHTML = leaves.map(item => `
-    <div class="history-card">
-
-      <div>
-        <strong>
-          ${escapeHTML(item.from_date || "-")}
-          →
-          ${escapeHTML(item.to_date || "-")}
-        </strong>
-      </div>
-
-      <div>
-        Reason:
-        ${escapeHTML(item.reason || "-")}
-      </div>
-
-      <div>
-        Room Vacate:
-        ${escapeHTML(
-          item.room_vacate ? "YES" : "NO"
-        )}
-      </div>
-
-      <div>
-        Status:
-        <strong>
-          ${escapeHTML(item.status || "PENDING")}
-        </strong>
-      </div>
-
-    </div>
-  `).join("");
+if (el) {
+el.textContent =
+value ?? "-";
+}
 }
 
 
-/* =========================
-   DIRECT VACATE
-========================= */
+function formatDate(value) { 
 
-async function submitEmployeeVacate() {
-  if (!currentEmployee) {
-    message(
-      "vacateMessage",
-      "Please login first",
-      "error"
-    );
-    return;
-  }
+if (!value) return "-"; 
 
-  const vacateDate = getValue([
-    "vacateDate",
-    "employeeVacateDate",
-    "vacateStartDate"
-  ]);
+const date =
+new Date(value); 
 
-  const returnDate = getValue([
-    "returnDate",
-    "employeeReturnDate",
-    "vacateReturnDate"
-  ]);
-
-  const reason = getValue([
-    "vacateReason",
-    "employeeVacateReason"
-  ]);
-
-  if (!vacateDate || !returnDate) {
-    message(
-      "vacateMessage",
-      "Select vacate date and return date",
-      "error"
-    );
-    return;
-  }
-
-  try {
-    const result = await api("/api/vacate", {
-      method: "POST",
-
-      body: JSON.stringify({
-        employee_id: currentEmployee.employee_id,
-        vacate_date: vacateDate,
-        return_date: returnDate,
-        reason: reason
-      })
-    });
-
-    message(
-      "vacateMessage",
-      result.message ||
-        "Room vacate request submitted."
-    );
-
-    await loadEmployeeVacate();
-
-  } catch (error) {
-    message(
-      "vacateMessage",
-      error.message,
-      "error"
-    );
-  }
-}
-
-
-async function loadEmployeeVacate() {
-  if (!currentEmployee) return;
-
-  try {
-    const data = await api(
-      `/api/vacate/${encodeURIComponent(
-        currentEmployee.employee_id
-      )}`
-    );
-
-    renderEmployeeVacate(
-      data.vacates || []
-    );
-
-  } catch (error) {
-    console.error(
-      "Vacate loading error:",
-      error
-    );
-  }
-}
-
-
-function renderEmployeeVacate(vacates) {
-  const target = firstElement([
-    "vacateHistory",
-    "employeeVacateHistory",
-    "vacateList"
-  ]);
-
-  if (!target) return;
-
-  if (!vacates.length) {
-    target.innerHTML =
-      '<div class="empty-box">No vacate records found.</div>';
-    return;
-  }
-
-  target.innerHTML = vacates.map(item => `
-    <div class="history-card">
-
-      <div>
-        <strong>
-          Vacate:
-          ${escapeHTML(item.vacate_date || "-")}
-        </strong>
-      </div>
-
-      <div>
-        Return:
-        ${escapeHTML(item.return_date || "-")}
-      </div>
-
-      <div>
-        Reason:
-        ${escapeHTML(item.reason || "-")}
-      </div>
-
-      <div>
-        Status:
-        <strong>
-          ${escapeHTML(item.status || "PENDING")}
-        </strong>
-      </div>
-
-    </div>
-  `).join("");
-                       }
-/* =========================
-   CHECK-IN
-========================= */
-
-async function submitEmployeeCheckin() {
-  if (!currentEmployee) {
-    message(
-      "checkinMessage",
-      "Please login first",
-      "error"
-    );
-    return;
-  }
-
-  const checkinDate = getValue([
-    "checkinDate",
-    "employeeCheckinDate"
-  ]);
-
-  const requestedRoom = getValue([
-    "checkinRoom",
-    "employeeCheckinRoom",
-    "requestedRoom"
-  ]);
-
-  const reason = getValue([
-    "checkinReason",
-    "employeeCheckinReason"
-  ]);
-
-  if (!checkinDate) {
-    message(
-      "checkinMessage",
-      "Select check-in date",
-      "error"
-    );
-    return;
-  }
-
-  try {
-    const result = await api("/api/checkin", {
-      method: "POST",
-
-      body: JSON.stringify({
-        employee_id: currentEmployee.employee_id,
-        checkin_date: checkinDate,
-        requested_room: requestedRoom,
-        reason: reason
-      })
-    });
-
-    message(
-      "checkinMessage",
-      result.message ||
-        "Check-in request submitted."
-    );
-
-    await loadEmployeeCheckin();
-
-  } catch (error) {
-    message(
-      "checkinMessage",
-      error.message,
-      "error"
-    );
-  }
-}
-
-
-async function loadEmployeeCheckin() {
-  if (!currentEmployee) return;
-
-  try {
-    const data = await api(
-      `/api/checkin/${encodeURIComponent(
-        currentEmployee.employee_id
-      )}`
-    );
-
-    renderEmployeeCheckin(
-      data.checkins || []
-    );
-
-  } catch (error) {
-    console.error(
-      "Check-in loading error:",
-      error
-    );
-  }
-}
-
-
-function renderEmployeeCheckin(checkins) {
-  const target = firstElement([
-    "checkinHistory",
-    "employeeCheckinHistory",
-    "checkinList"
-  ]);
-
-  if (!target) return;
-
-  if (!checkins.length) {
-    target.innerHTML =
-      '<div class="empty-box">No check-in records found.</div>';
-    return;
-  }
-
-  target.innerHTML = checkins.map(item => `
-    <div class="history-card">
-
-      <div>
-        <strong>
-          Check-in:
-          ${escapeHTML(item.checkin_date || "-")}
-        </strong>
-      </div>
-
-      <div>
-        Requested Room:
-        ${escapeHTML(item.requested_room || "-")}
-      </div>
-
-      <div>
-        Reason:
-        ${escapeHTML(item.reason || "-")}
-      </div>
-
-      <div>
-        Status:
-        <strong>
-          ${escapeHTML(item.status || "PENDING")}
-        </strong>
-      </div>
-
-    </div>
-  `).join("");
-}
-
-
-/* =========================
-   HR LOGIN
-========================= */
-
-async function hrLogin() {
-  const username = getValue([
-    "hrUsername",
-    "hrUser",
-    "username"
-  ]);
-
-  const password = getValue([
-    "hrPassword",
-    "hrPass",
-    "password"
-  ]);
-
-  if (!username || !password) {
-    message(
-      "hrLoginMessage",
-      "Enter HR username and password",
-      "error"
-    );
-    return;
-  }
-
-  try {
-    const result = await api("/api/hr/login", {
-      method: "POST",
-
-      body: JSON.stringify({
-        username: username,
-        password: password
-      })
-    });
-
-    if (!result.success) {
-      throw new Error(
-        result.message || "Invalid HR login"
-      );
-    }
-
-    showScreen("hrPortal");
-
-    await loadDashboard();
-
-    await loadHRVacates();
-
-  } catch (error) {
-    message(
-      "hrLoginMessage",
-      error.message,
-      "error"
-    );
-  }
-}
-
-
-/* =========================
-   HR DASHBOARD
-========================= */
-
-async function loadDashboard() {
-  try {
-    const data = await api(
-      "/api/hr/dashboard"
-    );
-
-    updateText(
-      "totalEmployees",
-      data.totalEmployees ?? 0
-    );
-
-    updateText(
-      "activeEmployees",
-      data.activeEmployees ?? 0
-    );
-
-    updateText(
-      "hostelInCount",
-      data.hostelIn ?? 0
-    );
-
-    updateText(
-      "hostelOutCount",
-      data.hostelOut ?? 0
-    );
-
-    if (data.rooms) {
-      renderRoomDashboard(data.rooms);
-    }
-
-  } catch (error) {
-    console.error(
-      "Dashboard loading error:",
-      error
-    );
-  }
-}
-
-
-function renderRoomDashboard(rooms) {
-  const target = firstElement([
-    "roomDashboard",
-    "hrRoomDashboard",
-    "roomCards"
-  ]);
-
-  if (!target) return;
-
-  if (!rooms || !rooms.length) {
-    target.innerHTML =
-      '<div class="empty-box">No room data available.</div>';
-    return;
-  }
-
-  target.innerHTML = rooms.map(room => `
-    <div class="room-dashboard-card">
-
-      <div class="room-title">
-        ${escapeHTML(room.room_no || "-")}
-      </div>
-
-      <div>
-        Block:
-        ${escapeHTML(room.block || "-")}
-      </div>
-
-      <div>
-        Occupancy:
-        <strong>
-          ${room.occupied ?? 0}/${room.capacity ?? 0}
-        </strong>
-      </div>
-
-      <div>
-        Available:
-        <strong>
-          ${
-            Math.max(
-              0,
-              (room.capacity || 0) -
-              (room.occupied || 0)
-            )
-          }
-        </strong>
-      </div>
-
-    </div>
-  `).join("");
-}
-
-
-/* =========================
-   HR VACATE MANAGEMENT
-========================= */
-
-async function loadHRVacates() {
-  try {
-    const data = await api(
-      "/api/hr/vacates"
-    );
-
-    renderHRVacates(
-      data.vacates || []
-    );
-
-  } catch (error) {
-    console.error(
-      "HR vacate loading error:",
-      error
-    );
-  }
-}
-
-
-function renderHRVacates(vacates) {
-  const pending = vacates.filter(
-    item => item.status === "PENDING"
-  );
-
-  const approved = vacates.filter(
-    item => item.status === "APPROVED"
-  );
-
-  const returned = vacates.filter(
-    item => item.status === "RETURNED"
-  );
-
-  const today = new Date();
-
-  const overdue = vacates.filter(item => {
-    if (!item.vacate_date) return false;
-
-    const start = new Date(
-      item.vacate_date
-    );
-
-    const diff =
-      Math.floor(
-        (today - start) /
-        (1000 * 60 * 60 * 24)
-      );
-
-    return (
-      diff >= 5 &&
-      item.status === "APPROVED"
-    );
-  });
-
-  updateText(
-    "pendingVacateCount",
-    pending.length
-  );
-
-  updateText(
-    "approvedVacateCount",
-    approved.length
-  );
-
-  updateText(
-    "returnedVacateCount",
-    returned.length
-  );
-
-  updateText(
-    "overdueVacateCount",
-    overdue.length
-  );
-
-  const target = firstElement([
-    "hrVacateList",
-    "vacateManagementList",
-    "hrVacates"
-  ]);
-
-  if (!target) return;
-
-  if (!vacates.length) {
-    target.innerHTML =
-      '<div class="empty-box">Vacate records will appear here.</div>';
-    return;
-  }
-
-  target.innerHTML = vacates.map(item => `
-    <div class="hr-vacate-card">
-
-      <div class="vacate-header">
-        <strong>
-          ${escapeHTML(
-            item.employee_id || "-"
-          )}
-        </strong>
-
-        <span class="status-badge">
-          ${escapeHTML(
-            item.status || "PENDING"
-          )}
-        </span>
-      </div>
-
-      <div>
-        Name:
-        ${escapeHTML(
-          item.employee_name || "-"
-        )}
-      </div>
-
-      <div>
-        Department:
-        ${escapeHTML(
-          item.department || "-"
-        )}
-      </div>
-
-      <div>
-        Vacate Date:
-        ${escapeHTML(
-          item.vacate_date || "-"
-        )}
-      </div>
-
-      <div>
-        Return Date:
-        ${escapeHTML(
-          item.return_date || "-"
-        )}
-      </div>
-
-      <div>
-        Reason:
-        ${escapeHTML(
-          item.reason || "-"
-        )}
-      </div>
-
-      ${
-        item.status === "PENDING"
-          ? `
-            <div class="action-row">
-
-              <button
-                class="green"
-                onclick="approveHRVacate(${item.id})">
-                ✅ Approve
-              </button>
-
-              <button
-                class="red"
-                onclick="rejectHRVacate(${item.id})">
-                ❌ Reject
-              </button>
-
-            </div>
-          `
-          : ""
-      }
-
-    </div>
-  `).join("");
-}
-
-
-async function approveHRVacate(id) {
-  if (!id) return;
-
-  try {
-    const result = await api(
-      `/api/hr/vacates/${id}/approve`,
-      {
-        method: "POST"
-      }
-    );
-
-    alert(
-      result.message ||
-      "Vacate approved."
-    );
-
-    await loadHRVacates();
-    await loadDashboard();
-
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-
-async function rejectHRVacate(id) {
-  if (!id) return;
-
-  try {
-    const result = await api(
-      `/api/hr/vacates/${id}/reject`,
-      {
-        method: "POST"
-      }
-    );
-
-    alert(
-      result.message ||
-      "Vacate rejected."
-    );
-
-    await loadHRVacates();
-
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-
-/* =========================
-   HR CHECK-IN MANAGEMENT
-========================= */
-
-async function loadHRCheckins() {
-  try {
-    const data = await api(
-      "/api/hr/checkins"
-    );
-
-    renderHRCheckins(
-      data.checkins || []
-    );
-
-  } catch (error) {
-    console.error(
-      "HR check-in loading error:",
-      error
-    );
-  }
-}
-
-
-function renderHRCheckins(checkins) {
-  const target = firstElement([
-    "hrCheckinList",
-    "checkinManagementList",
-    "hrCheckins"
-  ]);
-
-  if (!target) return;
-
-  if (!checkins.length) {
-    target.innerHTML =
-      '<div class="empty-box">No check-in requests found.</div>';
-    return;
-  }
-
-  target.innerHTML = checkins.map(item => `
-    <div class="hr-checkin-card">
-
-      <div class="vacate-header">
-        <strong>
-          ${escapeHTML(
-            item.employee_id || "-"
-          )}
-        </strong>
-
-        <span class="status-badge">
-          ${escapeHTML(
-            item.status || "PENDING"
-          )}
-        </span>
-      </div>
-
-      <div>
-        Name:
-        ${escapeHTML(
-          item.employee_name || "-"
-        )}
-      </div>
-
-      <div>
-        Requested Room:
-        ${escapeHTML(
-          item.requested_room || "-"
-        )}
-      </div>
-
-      <div>
-        Check-in Date:
-        ${escapeHTML(
-          item.checkin_date || "-"
-        )}
-      </div>
-
-      <div>
-        Reason:
-        ${escapeHTML(
-          item.reason || "-"
-        )}
-      </div>
-
-      ${
-        item.status === "PENDING"
-          ? `
-            <div class="action-row">
-
-              <button
-                class="green"
-                onclick="approveHRCheckin(${item.id})">
-                ✅ Approve
-              </button>
-
-              <button
-                class="red"
-                onclick="rejectHRCheckin(${item.id})">
-                ❌ Reject
-              </button>
-
-            </div>
-          `
-          : ""
-      }
-
-    </div>
-  `).join("");
-}
-
-
-async function approveHRCheckin(id) {
-  if (!id) return;
-
-  try {
-    const result = await api(
-      `/api/hr/checkins/${id}/approve`,
-      {
-        method: "POST"
-      }
-    );
-
-    alert(
-      result.message ||
-      "Check-in approved."
-    );
-
-    await loadHRCheckins();
-    await loadDashboard();
-
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-
-async function rejectHRCheckin(id) {
-  if (!id) return;
-
-  try {
-    const result = await api(
-      `/api/hr/checkins/${id}/reject`,
-      {
-        method: "POST"
-      }
-    );
-
-    alert(
-      result.message ||
-      "Check-in rejected."
-    );
-
-    await loadHRCheckins();
-
-  } catch (error) {
-    alert(error.message);
-  }
-}
-/* =========================
-   CAB QR SCANNER
-========================= */
-
-async function startCabScanner() {
-  if (scannerBusy) return;
-
-  scannerBusy = true;
-
-  const video = document.getElementById(
-    "cabScannerVideo"
-  );
-
-  if (!video) {
-    scannerBusy = false;
-    return;
-  }
-
-  try {
-    scannerStream =
-      await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: {
-            ideal: "environment"
-          }
-        },
-        audio: false
-      });
-
-    video.srcObject = scannerStream;
-
-    await video.play();
-
-    scannerDetector = null;
-
-    if (
-      "BarcodeDetector" in window
-    ) {
-      try {
-        scannerDetector =
-          new BarcodeDetector({
-            formats: [
-              "qr_code"
-            ]
-          });
-      } catch (error) {
-        console.error(
-          "BarcodeDetector error:",
-          error
-        );
-      }
-    }
-
-    if (!scannerDetector) {
-      await loadJSQR();
-    }
-
-    scanCabFrame();
-
-  } catch (error) {
-    scannerBusy = false;
-
-    message(
-      "cabScannerMessage",
-      error.message ||
-        "Camera permission required.",
-      "error"
-    );
-  }
-}
-
-
-async function loadJSQR() {
-  if (jsQRLoaded) return;
-
-  return new Promise(
-    (resolve, reject) => {
-
-      const script =
-        document.createElement(
-          "script"
-        );
-
-      script.src =
-        "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
-
-      script.onload = () => {
-        jsQRLoaded = true;
-        resolve();
-      };
-
-      script.onerror = () => {
-        reject(
-          new Error(
-            "Unable to load QR scanner."
-          )
-        );
-      };
-
-      document.head.appendChild(
-        script
-      );
-    }
-  );
-}
-
-
-async function scanCabFrame() {
-  if (!scannerBusy) return;
-
-  const video =
-    document.getElementById(
-      "cabScannerVideo"
-    );
-
-  if (!video) {
-    stopCabScanner();
-    return;
-  }
-
-  try {
-
-    if (
-      scannerDetector &&
-      video.readyState >= 2
-    ) {
-
-      const codes =
-        await scannerDetector.detect(
-          video
-        );
-
-      if (codes.length) {
-
-        const value =
-          codes[0].rawValue;
-
-        if (value) {
-          await processCabQR(value);
-          return;
-        }
-      }
-
-    } else if (
-      window.jsQR &&
-      video.readyState >= 2
-    ) {
-
-      const canvas =
-        document.createElement(
-          "canvas"
-        );
-
-      canvas.width =
-        video.videoWidth;
-
-      canvas.height =
-        video.videoHeight;
-
-      const ctx =
-        canvas.getContext(
-          "2d"
-        );
-
-      ctx.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      const imageData =
-        ctx.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
-      const code =
-        window.jsQR(
-          imageData.data,
-          imageData.width,
-          imageData.height
-        );
-
-      if (code && code.data) {
-        await processCabQR(
-          code.data
-        );
-        return;
-      }
-    }
-
-  } catch (error) {
-    console.error(
-      "QR scan error:",
-      error
-    );
-  }
-
-  scannerTimer =
-    requestAnimationFrame(
-      scanCabFrame
-    );
-}
-
-
-function stopCabScanner() {
-  scannerBusy = false;
-
-  if (scannerTimer) {
-    cancelAnimationFrame(
-      scannerTimer
-    );
-
-    scannerTimer = null;
-  }
-
-  if (scannerStream) {
-
-    scannerStream
-      .getTracks()
-      .forEach(track =>
-        track.stop()
-      );
-
-    scannerStream = null;
-  }
-
-  const video =
-    document.getElementById(
-      "cabScannerVideo"
-    );
-
-  if (video) {
-    video.srcObject = null;
-  }
-}
-
-
-async function processCabQR(value) {
-  stopCabScanner();
-
-  if (!value) return;
-
-  let employeeId =
-    String(value).trim();
-
-  try {
-    const parsed =
-      JSON.parse(value);
-
-    employeeId =
-      parsed.employee_id ||
-      parsed.employeeId ||
-      parsed.id ||
-      employeeId;
-
-  } catch (error) {
-    // Normal text QR
-  }
-
-  try {
-
-    const result =
-      await api(
-        "/api/cab/scan",
-        {
-          method: "POST",
-
-          body: JSON.stringify({
-            employee_id:
-              employeeId
-          })
-        }
-      );
-
-    message(
-      "cabScannerMessage",
-      result.message ||
-        "Employee added to cab."
-    );
-
-    await loadCabDashboard();
-
-  } catch (error) {
-
-    message(
-      "cabScannerMessage",
-      error.message,
-      "error"
-    );
-  }
-}
-
-
-/* =========================
-   CAB DASHBOARD
-========================= */
-
-async function loadCabDashboard() {
-  try {
-
-    const data =
-      await api(
-        "/api/cab/dashboard"
-      );
-
-    renderCabDashboard(
-      data
-    );
-
-  } catch (error) {
-
-    console.error(
-      "Cab dashboard error:",
-      error
-    );
-  }
-}
-
-
-function renderCabDashboard(data) {
-
-  const target =
-    firstElement([
-      "cabDashboard",
-      "cabEntries",
-      "cabList"
-    ]);
-
-  if (!target) return;
-
-  const entries =
-    data.entries ||
-    data.cabs ||
-    [];
-
-  if (!entries.length) {
-
-    target.innerHTML =
-      '<div class="empty-box">No cab entries found.</div>';
-
-    return;
-  }
-
-  target.innerHTML =
-    entries.map(item => `
-      <div class="cab-card">
-
-        <div>
-          <strong>
-            Cab ${escapeHTML(
-              item.cab_no ||
-              item.cab_number ||
-              "-"
-            )}
-          </strong>
-        </div>
-
-        <div>
-          Employee:
-          ${escapeHTML(
-            item.employee_id ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Name:
-          ${escapeHTML(
-            item.employee_name ||
-            item.name ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Department:
-          ${escapeHTML(
-            item.department ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Date:
-          ${escapeHTML(
-            item.entry_date ||
-            item.date ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Time:
-          ${escapeHTML(
-            item.entry_time ||
-            item.time ||
-            "-"
-          )}
-        </div>
-
-      </div>
-    `).join("");
-}
-
-
-/* =========================
-   HR EMPLOYEES
-========================= */
-
-async function loadHREmployees() {
-
-  try {
-
-    const data =
-      await api(
-        "/api/employees"
-      );
-
-    renderHREmployees(
-      data.employees ||
-      []
-    );
-
-  } catch (error) {
-
-    console.error(
-      "Employee loading error:",
-      error
-    );
-  }
-}
-
-
-function renderHREmployees(
-  employees
+if (
+Number.isNaN(
+date.getTime()
+)
 ) {
+return value;
+} 
 
-  const target =
-    firstElement([
-      "hrEmployeeList",
-      "employeeManagementList",
-      "employeesList"
-    ]);
+return date.toLocaleDateString(
+"en-IN"
+);
+}
 
-  if (!target) return;
 
-  if (!employees.length) {
+function formatDateTime(value) { 
 
-    target.innerHTML =
-      '<div class="empty-box">No employees found.</div>';
+if (!value) return "-"; 
 
-    return;
-  }
+const date =
+new Date(value); 
 
-  target.innerHTML =
-    employees.map(item => `
-      <div class="employee-card">
+if (
+Number.isNaN(
+date.getTime()
+)
+) {
+return value;
+} 
 
-        <div class="employee-header">
-
-          <strong>
-            ${escapeHTML(
-              item.employee_id ||
-              "-"
-            )}
-          </strong>
-
-          <span>
-            ${escapeHTML(
-              item.hostel_status ||
-              "IN"
-            )}
-          </span>
-
-        </div>
-
-        <div>
-          Name:
-          ${escapeHTML(
-            item.name ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Department:
-          ${escapeHTML(
-            item.department ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Designation:
-          ${escapeHTML(
-            item.designation ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Room:
-          ${escapeHTML(
-            item.room_no ||
-            "-"
-          )}
-        </div>
-
-        <div>
-          Bed:
-          ${escapeHTML(
-            item.bed_no ||
-            "-"
-          )}
-        </div>
-
-      </div>
-    `).join("");
+return date.toLocaleString(
+"en-IN"
+);
 }
 
 
 /* =========================
-   EXPORTS
-========================= */
+SCREEN CONTROL
+========================= */ 
 
-async function downloadCabExcel() {
+function showScreen(id) { 
 
-  try {
+document
+.querySelectorAll(
+"main > section"
+)
+.forEach(section => { 
 
-    const response =
-      await fetch(
-        `${API}/api/cab/export`
-      );
+section.classList.add(
+"hidden"
+); 
 
-    if (!response.ok) {
-      throw new Error(
-        "Cab export failed."
-      );
-    }
+});
 
-    const blob =
-      await response.blob();
 
-    const url =
-      URL.createObjectURL(
-        blob
-      );
+const screen = `$(id); 
 
-    const link =
-      document.createElement(
-        "a"
-      );
+if (screen) { 
 
-    link.href = url;
+screen.classList.remove(
+"hidden"
+); 
 
-    link.download =
-      `texmo-cab-${todayString()}.csv`;
+window.scrollTo({
+top: 0,
+behavior: "smooth"
+}); 
 
-    document.body.appendChild(
-      link
-    );
+}
+}
+/* =========================
+EMPLOYEE LOGIN
+========================= */ 
 
-    link.click();
+async function employeeLogin() { 
 
-    link.remove();
+const employeeId =
+getValue([
+"employeeLoginId",
+"loginEmployeeId"
+]);
 
-    URL.revokeObjectURL(
-      url
-    );
 
-  } catch (error) {
+if (!employeeId) { 
 
-    alert(error.message);
-  }
+message(
+"employeeLoginMessage",
+"Enter Employee ID",
+"error"
+); 
+
+return;
 }
 
 
-async function downloadVacateExcel() {
+try { 
 
-  try {
+const data =
+await api(
+/api/employees/${encodeURIComponent(
+employeeId
+)}`
+);
 
-    const response =
-      await fetch(
-        `${API}/api/hr/vacates/export`
-      );
 
-    if (!response.ok) {
-      throw new Error(
-        "Vacate export failed."
-      );
-    }
+currentEmployee =
+data.employee;
 
-    const blob =
-      await response.blob();
 
-    const url =
-      URL.createObjectURL(
-        blob
-      );
+localStorage.setItem(
+"texmo_employee_id",
+currentEmployee.employee_id
+);
 
-    const link =
-      document.createElement(
-        "a"
-      );
 
-    link.href = url;
+showScreen(
+"employeePortal"
+);
 
-    link.download =
-      `texmo-vacate-${todayString()}.csv`;
 
-    document.body.appendChild(
-      link
-    );
+renderEmployee();
 
-    link.click();
 
-    link.remove();
+await loadMyRoom();
+await loadEmployeeLeave();
+await loadEmployeeVacate();
+await loadEmployeeCheckin(); 
 
-    URL.revokeObjectURL(
-      url
-    );
+} catch (error) { 
 
-  } catch (error) {
+message(
+"employeeLoginMessage",
+error.message,
+"error"
+); 
 
-    alert(error.message);
-  }
+}
 }
 
 
 /* =========================
-   FOOD QR
-========================= */
+EMPLOYEE REGISTRATION
+========================= */ 
 
-function generateFoodQR() {
+async function registerEmployee() { 
 
-  if (!currentEmployee) {
+const data = { 
 
-    message(
-      "foodQRMessage",
-      "Please login first",
-      "error"
-    );
+employee_id:
+getValue([
+"regEmployeeId"
+]), 
 
-    return;
-  }
+name:
+getValue([
+"regName"
+]), 
 
-  const target =
-    firstElement([
-      "foodQR",
-      "foodQRCode",
-      "employeeFoodQR"
-    ]);
+department:
+getValue([
+"regDepartment"
+]), 
 
-  if (!target) return;
+designation:
+getValue([
+"regDesignation"
+]), 
 
-  const qrText =
-    JSON.stringify({
-      employee_id:
-        currentEmployee.employee_id,
+phone:
+getValue([
+"regPhone"
+]), 
 
-      name:
-        currentEmployee.name,
+shift:
+getSelectValue([
+"regShift"
+]), 
 
-      type:
-        "FOOD"
-    });
+room:
+getValue([
+"regRoom"
+])
+};
 
-  target.innerHTML = `
-    <div class="qr-box">
 
-      <div class="qr-data">
-        ${escapeHTML(qrText)}
-      </div>
+if (
+!data.employee_id ||
+!data.name ||
+!data.department
+) { 
 
-      <div>
-        Employee Food QR
-      </div>
+message(
+"registerMessage",
+"Employee ID, Name and Department are required",
+"error"
+); 
 
-    </div>
-  `;
+return;
+}
 
-  message(
-    "foodQRMessage",
-    "Food QR generated."
-  );
+
+try { 
+
+const result =
+await api(
+"/api/employees/register",
+{
+method: "POST", 
+
+body:
+JSON.stringify(data)
+}
+);
+
+
+message(
+"registerMessage",
+"Registration successful. Employee ID: " +
+result.employee_id
+);
+
+
+setTimeout(() => { 
+
+const loginInput =
+firstElement([
+"employeeLoginId",
+"loginEmployeeId"
+]);
+
+
+if (loginInput) { 
+
+loginInput.value =
+result.employee_id; 
+
+}
+
+
+showScreen(
+"employeeLogin"
+); 
+
+}, 1000); 
+
+} catch (error) { 
+
+message(
+"registerMessage",
+error.message,
+"error"
+); 
+
+}
 }
 
 
 /* =========================
-   EMPLOYEE SHIFT
-========================= */
+LOAD EMPLOYEE
+========================= */ 
 
-async function saveEmployeeShift() {
+async function loadEmployee() { 
 
-  if (!currentEmployee) {
+const employeeId =
+localStorage.getItem(
+"texmo_employee_id"
+);
 
-    message(
-      "shiftMessage",
-      "Please login first",
-      "error"
-    );
 
-    return;
-  }
+if (!employeeId) { 
 
-  const shift =
-    getValue([
-      "employeeShift",
-      "shiftSelect",
-      "shift"
-    ]);
+showScreen(
+"employeeLogin"
+); 
 
-  if (!shift) {
+return;
+}
 
-    message(
-      "shiftMessage",
-      "Select shift",
-      "error"
-    );
 
-    return;
-  }
+try { 
 
-  try {
+const data =
+await api(
+/api/employees/${encodeURIComponent(
+employeeId
+)}`
+);
 
-    const result =
-      await api(
-        "/api/employee/shift",
-        {
-          method: "POST",
 
-          body: JSON.stringify({
-            employee_id:
-              currentEmployee.employee_id,
+currentEmployee =
+data.employee;
 
-            shift:
-              shift
-          })
-        }
-      );
 
-    message(
-      "shiftMessage",
-      result.message ||
-        "Shift saved."
-    );
+renderEmployee();
 
-    currentEmployee.shift =
-      shift;
 
-  } catch (error) {
+await loadMyRoom();
+await loadEmployeeLeave();
+await loadEmployeeVacate();
+await loadEmployeeCheckin(); 
 
-    message(
-      "shiftMessage",
-      error.message,
-      "error"
-    );
-  }
-       }
-/* =========================
-   EMPLOYEE TAB CONTROL
-========================= */
+} catch (error) { 
 
-function texmoEmployeeTab(tab) {
+localStorage.removeItem(
+"texmo_employee_id"
+);
 
-  const sections = [
-    "employeeHome",
-    "employeeProfile",
-    "employeeRoom",
-    "employeeLeave",
-    "employeeVacate",
-    "employeeCheckin",
-    "employeeCab",
-    "employeeFood",
-    "employeeShift"
-  ];
 
-  sections.forEach(id => {
-    const element =
-      document.getElementById(id);
+currentEmployee = null;
 
-    if (element) {
-      element.style.display =
-        "none";
-    }
-  });
 
-  const target =
-    document.getElementById(
-      `employee${capitalize(tab)}`
-    );
+message(
+"employeeLoginMessage",
+error.message,
+"error"
+);
 
-  if (target) {
-    target.style.display =
-      "block";
-  }
 
-  if (tab === "room") {
-    loadMyRoom();
-  }
-
-  if (tab === "leave") {
-    loadEmployeeLeave();
-  }
-
-  if (tab === "vacate") {
-    loadEmployeeVacate();
-  }
-
-  if (tab === "checkin") {
-    loadEmployeeCheckin();
-  }
-
-  if (tab === "cab") {
-    loadCabDashboard();
-  }
+showScreen(
+"employeeLogin"
+);
+}
 }
 
 
 /* =========================
-   HR TAB CONTROL
-========================= */
+EMPLOYEE PROFILE
+========================= */ 
 
-function texmoHRTab(tab) {
+function renderEmployee() { 
 
-  const sections = [
-    "hrDashboard",
-    "hrEmployees",
-    "hrRooms",
-    "hrVacate",
-    "hrCheckin",
-    "hrCab",
-    "hrReports"
-  ];
+if (!currentEmployee) return;
 
-  sections.forEach(id => {
 
-    const element =
-      document.getElementById(id);
+const employee =
+currentEmployee;
 
-    if (element) {
-      element.style.display =
-        "none";
-    }
 
-  });
+const box =
+firstElement([
+"employeeDetails",
+"employeeProfile",
+"profileDetails"
+]);
 
-  const target =
-    firstElement([
-      `hr${capitalize(tab)}`,
-      `hr${tab}`,
-      tab
-    ]);
 
-  if (target) {
-    target.style.display =
-      "block";
-  }
+if (box) { 
 
-  if (
-    tab === "dashboard" ||
-    tab === "home"
-  ) {
-    loadDashboard();
-  }
+box.innerHTML = ` 
 
-  if (
-    tab === "employees" ||
-    tab === "employee"
-  ) {
-    loadHREmployees();
-  }
+<div class="employee-card"> 
 
-  if (
-    tab === "vacate" ||
-    tab === "hrVacate"
-  ) {
-    loadHRVacates();
-  }
+<strong class="profile-name">
+$`{escapeHtml(
+employee.name
+)}
+</strong>
 
-  if (
-    tab === "checkin" ||
-    tab === "hrCheckin"
-  ) {
-    loadHRCheckins();
-  }
 
-  if (
-    tab === "cab" ||
-    tab === "hrCab"
-  ) {
-    loadCabDashboard();
-  }
+<div class="profile-row"> 
+
+<span class="profile-label">
+Employee ID
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+employee.employee_id
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Department
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+employee.department
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Designation
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+employee.designation || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Phone
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+employee.phone || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Shift
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+employee.shift || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Room
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+employee.room || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Bed
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+employee.bed_no || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Hostel Status
+</span> 
+
+<span class="profile-value"> 
+
+<span class="badge">
+$`{escapeHtml(
+employee.hostel_status ||
+"IN"
+)}
+</span> 
+
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Account Status
+</span> 
+
+<span class="profile-value"> 
+
+<span class="badge">
+`${escapeHtml(
+employee.status || "-"
+)}
+</span> 
+
+</span> 
+
+</div> 
+
+</div> 
+
+`;
+}
+
+
+createEmployeeQR(
+employee.qr_token
+);
 }
 
 
 /* =========================
-   ATTENDANCE
-========================= */
+EMPLOYEE QR
+========================= */ 
 
-async function markAttendance(type) {
+function createEmployeeQR(token) { 
 
-  if (!currentEmployee) {
+const box =
+firstElement([
+"qrcode",
+"employeeQRCode"
+]);
 
-    message(
-      "attendanceMessage",
-      "Please login first",
-      "error"
-    );
 
-    return;
-  }
+if (!box) return;
 
-  if (
-    type !== "IN" &&
-    type !== "OUT"
-  ) {
 
-    message(
-      "attendanceMessage",
-      "Invalid attendance type",
-      "error"
-    );
+box.innerHTML = "";
 
-    return;
-  }
 
-  try {
+if (!token) { 
 
-    const result =
-      await api(
-        "/api/attendance",
-        {
-          method: "POST",
+box.innerHTML =
+<p class="small"&gt;QR not available&lt;/p>; 
 
-          body: JSON.stringify({
-            employee_id:
-              currentEmployee.employee_id,
+return;
+}
 
-            type:
-              type
-          })
-        }
-      );
 
-    message(
-      "attendanceMessage",
-      result.message ||
-        `Attendance ${type} marked.`
-    );
+if (
+typeof QRCode ===
+"undefined"
+) { 
 
-  } catch (error) {
+box.innerHTML =
+<p class="small"&gt;QR library loading...&lt;/p>;
 
-    message(
-      "attendanceMessage",
-      error.message,
-      "error"
-    );
-  }
+
+setTimeout(() => { 
+
+if (
+typeof QRCode !==
+"undefined"
+) { 
+
+createEmployeeQR(
+token
+); 
+
+} 
+
+}, 800);
+
+
+return;
+}
+
+
+new QRCode(
+box,
+{
+text: token,
+width: 220,
+height: 220,
+correctLevel:
+QRCode.CorrectLevel.M
+}
+);
 }
 
 
 /* =========================
-   LOGOUT
-========================= */
+MY ROOM
+========================= */ 
 
-function employeeLogout() {
+async function loadMyRoom() { 
 
-  currentEmployee = null;
+if (!currentEmployee) return;
 
-  localStorage.removeItem(
-    "texmo_employee"
-  );
 
-  showScreen(
-    "employeeLogin"
-  );
+try { 
+
+const data =
+await api(
+/api/employee-room/${encodeURIComponent(
+currentEmployee.employee_id
+)}`
+);
+
+
+renderMyRoom(data); 
+
+} catch (error) { 
+
+renderMyRoomError(
+error.message
+); 
+
+}
 }
 
 
-function hrLogout() {
+function renderMyRoom(data) { 
 
-  localStorage.removeItem(
-    "texmo_hr"
-  );
+const room =
+data.room || {};
 
-  showScreen(
-    "hrLogin"
-  );
+
+const target =
+firstElement([
+"myRoomDetails",
+"myRoomContent",
+"employeeRoomContent",
+"roomDetails",
+"myRoom",
+"employeeRoom"
+]);
+
+
+if (!target) return;
+
+
+const members =
+data.members || [];
+
+
+const status =
+data.hostel_status ||
+currentEmployee?.hostel_status ||
+"IN";
+
+
+target.innerHTML = ` 
+
+<div class="employee-card"> 
+
+<h3>My Room</h3>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Block
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+room.block || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Room
+</span> 
+
+<span class="profile-value"> 
+
+$`{escapeHtml(
+room.room_no ||
+currentEmployee?.room ||
+"-"
+)} 
+
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+My Bed
+</span> 
+
+<span class="profile-value"> 
+
+`${escapeHtml(
+data.employee_bed ||
+currentEmployee?.bed_no ||
+"-"
+)} 
+
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Capacity
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+room.capacity || 0
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Occupied
+</span> 
+
+<span class="profile-value"> 
+
+${escapeHtml( room.occupied || 0 )} / ${escapeHtml(
+room.capacity || 0
+)} 
+
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Available Beds
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+room.available || 0
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Hostel Status
+</span> 
+
+<span class="profile-value"> 
+
+<span class="badge">
+$`{escapeHtml(status)}
+</span> 
+
+</span> 
+
+</div> 
+
+</div>
+
+
+<div class="employee-card"> 
+
+<h3>Room Members</h3>
+
+
+`${
+members.length 
+
+? members
+.map(
+member => ` 
+
+<div class="profile-row"> 
+
+<span class="profile-label"> 
+
+$`{escapeHtml(
+member.bed_no ||
+"-"
+)} 
+
+</span>
+
+
+<span class="profile-value"> 
+
+`${escapeHtml(
+member.name
+)} 
+
+<small>
+($`{escapeHtml(
+member.employee_id
+)})
+</small> 
+
+</span> 
+
+</div> 
+
+`
+)
+.join("") 
+
+: ` 
+
+<p class="small">
+No active members found.
+</p> 
+
+`
+} 
+
+</div> 
+
+`;
+   }
+   function renderMyRoomError(error) { 
+
+const target =
+firstElement([
+"myRoomDetails",
+"myRoomContent",
+"employeeRoomContent",
+"roomDetails",
+"myRoom",
+"employeeRoom"
+]);
+
+
+if (!target) return;
+
+
+target.innerHTML = ` 
+
+<div class="error-box">
+`${escapeHtml(error)}
+</div> 
+
+`;
 }
 
 
 /* =========================
-   GLOBAL FUNCTION BINDING
-========================= */
+LEAVE
+========================= */ 
 
-function bindTexmoFunctions() {
+async function submitEmployeeLeave() { 
 
-  window.submitEmployeeLeave =
-    submitEmployeeLeave;
+if (!currentEmployee) { 
 
-  window.submitEmployeeVacate =
-    submitEmployeeVacate;
+message(
+"employeeLeaveMessage",
+"Please login first",
+"error"
+); 
 
-  window.submitEmployeeCheckin =
-    submitEmployeeCheckin;
+return;
+}
 
-  window.loadEmployeeLeave =
-    loadEmployeeLeave;
 
-  window.loadEmployeeVacate =
-    loadEmployeeVacate;
+const startDate =
+getValue([
+"leaveStartDate",
+"employeeLeaveStart",
+"leaveFrom"
+]);
 
-  window.loadEmployeeCheckin =
-    loadEmployeeCheckin;
 
-  window.loadMyRoom =
-    loadMyRoom;
+const endDate =
+getValue([
+"leaveEndDate",
+"employeeLeaveEnd",
+"leaveTo"
+]);
 
-  window.hrLogin =
-    hrLogin;
 
-  window.loadDashboard =
-    loadDashboard;
+const reason =
+getValue([
+"leaveReason",
+"employeeLeaveReason"
+]);
 
-  window.loadHRVacates =
-    loadHRVacates;
 
-  window.approveHRVacate =
-    approveHRVacate;
+const roomVacateCheckbox =
+firstElement([
+"leaveRoomVacate",
+"roomVacate",
+"vacateRoomWithLeave"
+]);
 
-  window.rejectHRVacate =
-    rejectHRVacate;
 
-  window.loadHRCheckins =
-    loadHRCheckins;
+const roomVacate =
+roomVacateCheckbox
+? roomVacateCheckbox.checked
+: false;
 
-  window.approveHRCheckin =
-    approveHRCheckin;
 
-  window.rejectHRCheckin =
-    rejectHRCheckin;
+if (
+!startDate ||
+!endDate
+) { 
 
-  window.startCabScanner =
-    startCabScanner;
+message(
+"employeeLeaveMessage",
+"Select leave start and end date",
+"error"
+); 
 
-  window.stopCabScanner =
-    stopCabScanner;
+return;
+}
 
-  window.loadCabDashboard =
-    loadCabDashboard;
 
-  window.downloadCabExcel =
-    downloadCabExcel;
+try { 
 
-  window.downloadVacateExcel =
-    downloadVacateExcel;
+const result =
+await api(
+"/api/leave",
+{
+method: "POST", 
 
-  window.generateFoodQR =
-    generateFoodQR;
+body:
+JSON.stringify({
+employee_id:
+currentEmployee.employee_id, 
 
-  window.saveEmployeeShift =
-    saveEmployeeShift;
+start_date:
+startDate, 
 
-  window.texmoEmployeeTab =
-    texmoEmployeeTab;
+end_date:
+endDate, 
 
-  window.texmoHRTab =
-    texmoHRTab;
+reason:
+reason, 
 
-  window.markAttendance =
-    markAttendance;
+room_vacate:
+roomVacate
+})
+}
+);
 
-  window.employeeLogout =
-    employeeLogout;
 
-  window.hrLogout =
-    hrLogout;
+message(
+"employeeLeaveMessage",
+result.message ||
+"Leave request submitted successfully."
+);
+
+
+await loadEmployeeLeave();
+
+
+if (roomVacate) { 
+
+await loadEmployeeVacate(); 
+
+} 
+
+} catch (error) { 
+
+message(
+"employeeLeaveMessage",
+error.message,
+"error"
+); 
+
+}
+}
+
+
+async function loadEmployeeLeave() { 
+
+if (!currentEmployee) return;
+
+
+try { 
+
+const data =
+await api(
+/api/leave/${encodeURIComponent(
+currentEmployee.employee_id
+)}`
+);
+
+
+renderEmployeeLeave(
+data.leaves || []
+); 
+
+} catch (error) { 
+
+console.error(
+"Leave loading error:",
+error
+); 
+
+}
+}
+
+
+function renderEmployeeLeave(
+leaves
+) { 
+
+const target =
+firstElement([
+"leaveHistory",
+"employeeLeaveHistory",
+"leaveList"
+]);
+
+
+if (!target) return;
+
+
+if (!leaves.length) { 
+
+target.innerHTML =
+<p class="small"&gt;No leave records.&lt;/p>; 
+
+return;
+}
+
+
+target.innerHTML =
+leaves
+.map(
+item => ` 
+
+<div class="employee-card"> 
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+From
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+formatDate(
+item.start_date
+)
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+To
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+formatDate(
+item.end_date
+)
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Reason
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+item.reason || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Room Vacate
+</span> 
+
+<span class="profile-value"> 
+
+$`{
+item.room_vacate
+? "YES"
+: "NO"
+} 
+
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Status
+</span> 
+
+<span class="profile-value"> 
+
+<span class="badge">
+`${escapeHtml(
+item.status ||
+"PENDING"
+)}
+</span> 
+
+</span> 
+
+</div> 
+
+</div> 
+
+`
+)
+.join("");
 }
 
 
 /* =========================
-   AUTO REFRESH
-========================= */
+DIRECT ROOM VACATE
+========================= */ 
 
-let texmoRefreshTimer = null;
+async function submitEmployeeVacate() { 
 
-function startTexmoAutoRefresh() {
+if (!currentEmployee) { 
 
-  if (texmoRefreshTimer) {
-    clearInterval(
-      texmoRefreshTimer
-    );
-  }
+message(
+"employeeVacateMessage",
+"Please login first",
+"error"
+); 
 
-  texmoRefreshTimer =
-    setInterval(
-      async () => {
+return;
+}
 
-        try {
 
-          const employeePortal =
-            document.getElementById(
-              "employeePortal"
-            );
+const vacateDate =
+getValue([
+"vacateDate",
+"employeeVacateDate",
+"vacateStartDate"
+]);
 
-          const hrPortal =
-            document.getElementById(
-              "hrPortal"
-            );
 
-          if (
-            currentEmployee &&
-            employeePortal &&
-            employeePortal.style.display !==
-              "none"
-          ) {
+const returnDate =
+getValue([
+"returnDate",
+"employeeReturnDate",
+"vacateReturnDate"
+]);
 
-            await loadMyRoom();
-            await loadEmployeeLeave();
-            await loadEmployeeVacate();
-            await loadEmployeeCheckin();
 
-          }
+const reason =
+getValue([
+"vacateReason",
+"employeeVacateReason"
+]);
 
-          if (
-            hrPortal &&
-            hrPortal.style.display !==
-              "none"
-          ) {
 
-            await loadDashboard();
-            await loadHRVacates();
-            await loadHRCheckins();
+if (
+!vacateDate ||
+!returnDate
+) { 
 
-          }
+message(
+"employeeVacateMessage",
+"Select vacate date and return date",
+"error"
+); 
 
-        } catch (error) {
+return;
+}
 
-          console.error(
-            "Auto refresh error:",
-            error
-          );
 
-        }
+try { 
 
-      },
-      30000
-    );
+const result =
+await api(
+"/api/vacate",
+{
+method: "POST", 
+
+body:
+JSON.stringify({
+employee_id:
+currentEmployee.employee_id, 
+
+vacate_date:
+vacateDate, 
+
+return_date:
+returnDate, 
+
+reason:
+reason
+})
+}
+);
+
+
+message(
+"employeeVacateMessage",
+result.message ||
+"Room vacate request submitted."
+);
+
+
+await loadEmployeeVacate(); 
+
+} catch (error) { 
+
+message(
+"employeeVacateMessage",
+error.message,
+"error"
+); 
+
+}
+}
+
+
+async function loadEmployeeVacate() { 
+
+if (!currentEmployee) return;
+
+
+try { 
+
+const data =
+await api(
+/api/vacate/${encodeURIComponent(
+currentEmployee.employee_id
+)}`
+);
+
+
+renderEmployeeVacate(
+data.vacates || []
+); 
+
+} catch (error) { 
+
+console.error(
+"Vacate loading error:",
+error
+); 
+
+}
+}
+
+
+function renderEmployeeVacate(
+vacates
+) { 
+
+const target =
+firstElement([
+"vacateHistory",
+"employeeVacateHistory",
+"vacateList"
+]);
+
+
+if (!target) return;
+
+
+if (!vacates.length) { 
+
+target.innerHTML =
+<p class="small"&gt;No room vacate records.&lt;/p>; 
+
+return;
+}
+
+
+target.innerHTML =
+vacates
+.map(
+item => ` 
+
+<div class="employee-card"> 
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Vacate Date
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+formatDate(
+item.vacate_date
+)
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Return Date
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+formatDate(
+item.return_date
+)
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Reason
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+item.reason || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Status
+</span> 
+
+<span class="profile-value"> 
+
+<span class="badge">
+$`{escapeHtml(
+item.status ||
+"PENDING"
+)}
+</span> 
+
+</span> 
+
+</div> 
+
+</div> 
+
+`
+)
+.join("");
 }
 
 
 /* =========================
-   PAGE START
-========================= */
+CHECK-IN
+========================= */ 
 
-document.addEventListener(
-  "DOMContentLoaded",
-  async () => {
+async function submitEmployeeCheckin() { 
 
-    try {
+if (!currentEmployee) { 
 
-      bindTexmoFunctions();
+message(
+"checkinMessage",
+"Please login first",
+"error"
+); 
 
-      startTexmoAutoRefresh();
+return;
+}
 
-      const savedEmployee =
-        localStorage.getItem(
-          "texmo_employee"
-        );
 
-      if (savedEmployee) {
+const requestedRoom =
+getValue([
+"checkinRoom",
+"employeeCheckinRoom"
+]);
 
-        try {
 
-          currentEmployee =
-            JSON.parse(
-              savedEmployee
-            );
+try { 
 
-        } catch (error) {
+const result =
+await api(
+"/api/checkin",
+{
+method: "POST", 
 
-          localStorage.removeItem(
-            "texmo_employee"
-          );
+body:
+JSON.stringify({
+employee_id:
+currentEmployee.employee_id, 
 
-          currentEmployee = null;
-        }
-      }
+requested_room:
+requestedRoom ||
+null
+})
+}
+);
 
-      const savedHR =
-        localStorage.getItem(
-          "texmo_hr"
-        );
 
-      if (savedHR) {
+message(
+"checkinMessage",
+result.message ||
+"Check-In request sent to HR."
+);
 
-        showScreen(
-          "hrPortal"
-        );
 
-        await loadDashboard();
-        await loadHRVacates();
-        await loadHRCheckins();
+await loadEmployeeCheckin(); 
 
-      } else if (currentEmployee) {
+} catch (error) { 
 
-        showScreen(
-          "employeePortal"
-        );
+message(
+"checkinMessage",
+error.message,
+"error"
+); 
 
-        await loadMyRoom();
-        await loadEmployeeLeave();
-        await loadEmployeeVacate();
-        await loadEmployeeCheckin();
+}
+}
 
-      } else {
 
-        showScreen(
-          "employeeLogin"
-        );
-      }
+async function loadEmployeeCheckin() { 
 
-    } catch (error) {
+if (!currentEmployee) return;
 
-      console.error(
-        "TEXMO initialization error:",
-        error
-      );
 
-    }
+try { 
 
-  }
+const data =
+await api(
+/api/checkin/${encodeURIComponent(
+currentEmployee.employee_id
+)}`
+);
+
+
+renderEmployeeCheckin(
+data.requests || []
+); 
+
+} catch (error) { 
+
+console.error(
+"Check-in loading error:",
+error
+); 
+
+}
+}
+
+
+function renderEmployeeCheckin(
+requests
+) { 
+
+const target =
+firstElement([
+"checkinHistory",
+"employeeCheckinHistory",
+"checkinList"
+]);
+
+
+if (!target) return;
+
+
+if (!requests.length) { 
+
+target.innerHTML =
+<p class="small"&gt;No Check-In requests.&lt;/p>; 
+
+return;
+}
+
+
+target.innerHTML =
+requests
+.map(
+item => ` 
+
+<div class="employee-card"> 
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Requested
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+formatDateTime(
+item.created_at
+)
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Requested Room
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+item.requested_room ||
+"Original Room"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Status
+</span> 
+
+<span class="profile-value"> 
+
+<span class="badge">
+$`{escapeHtml(
+item.status ||
+"PENDING"
+)}
+</span> 
+
+</span> 
+
+</div>
+
+
+`${
+item.hr_note 
+
+? ` 
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+HR Note
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+item.hr_note
+)}
+</span> 
+
+</div> 
+
+` 
+
+: ""
+} 
+
+</div> 
+
+`
+)
+.join("");
+}
+
+
+/* =========================
+HR LOGIN
+TEMPORARY VERSION
+========================= */ 
+
+async function hrLogin() { 
+
+const username =
+getValue([
+"hrUsername"
+]);
+
+
+const password =
+firstElement([
+"hrPassword"
+])?.value || "";
+
+
+if (
+!username ||
+!password
+) { 
+
+message(
+"hrLoginMessage",
+"Enter username and password",
+"error"
+); 
+
+return;
+}
+
+
+try { 
+
+await api(
+"/api/hr/login",
+{
+method: "POST", 
+
+body:
+JSON.stringify({
+username,
+password
+})
+}
+);
+
+
+localStorage.setItem(
+"texmo_hr_login",
+"true"
+);
+
+
+showScreen(
+"hrPortal"
+);
+
+
+await loadDashboard(); 
+
+} catch (error) { 
+
+message(
+"hrLoginMessage",
+error.message,
+"error"
+); 
+
+}
+}
+
+
+/* =========================
+HR DASHBOARD
+========================= */ 
+
+async function loadDashboard() { 
+
+try { 
+
+const data =
+await api(
+"/api/cab/dashboard"
+);
+
+
+setText(
+["totalBoarded"],
+data.total_boarded || 0
+);
+
+
+renderDepartmentStats(
+data.departments || []
+);
+
+
+renderCabStats(
+data.cabs || []
+);
+
+
+renderShiftStats(
+data.shifts || []
+);
+
+
+const employees =
+await api(
+"/api/employees"
+);
+
+
+setText(
+["totalEmployees"],
+employees
+.employees
+?.length || 0
+);
+
+
+} catch (error) { 
+
+console.error(
+"Dashboard error:",
+error
+); 
+
+}
+}
+
+
+function renderDepartmentStats(
+items
+) { 
+
+const target =
+firstElement([
+"departmentStats",
+"hrDepartmentStats"
+]);
+
+
+if (!target) return;
+
+
+target.innerHTML =
+items
+.map(
+item => ` 
+
+<div class="stat-card"> 
+
+<strong>
+`${escapeHtml(
+item.department || "-"
+)}
+</strong> 
+
+<span>
+$`{escapeHtml(
+item.count || 0
+)}
+</span> 
+
+</div> 
+
+`
+)
+.join("");
+}
+
+
+function renderCabStats(items) { 
+
+const target =
+firstElement([
+"cabStats",
+"hrCabStats"
+]);
+
+
+if (!target) return;
+
+
+target.innerHTML =
+items
+.map(
+item => ` 
+
+<div class="stat-card"> 
+
+<strong>
+`${escapeHtml(
+item.cab || "-"
+)}
+</strong> 
+
+<span>
+$`{escapeHtml(
+item.count || 0
+)}
+</span> 
+
+</div> 
+
+`
+)
+.join("");
+}
+
+
+function renderShiftStats(
+items
+) { 
+
+const target =
+firstElement([
+"shiftStats",
+"hrShiftStats"
+]);
+
+
+if (!target) return;
+
+
+target.innerHTML =
+items
+.map(
+item => ` 
+
+<div class="stat-card"> 
+
+<strong>
+`${escapeHtml(
+item.shift || "-"
+)}
+</strong> 
+
+<span>
+$`{escapeHtml(
+item.count || 0
+)}
+</span> 
+
+</div> 
+
+`
+)
+.join("");
+}
+
+
+/* =========================
+HR VACATE MANAGEMENT
+========================= */ 
+
+async function loadHRVacates() { 
+
+const target =
+firstElement([
+"hrVacateList"
+]);
+
+
+try { 
+
+const data =
+await api(
+"/api/hr/vacates"
+);
+
+
+const vacates =
+data.vacates ||
+data.records ||
+[];
+
+
+renderHRVacates(
+vacates
+); 
+
+} catch (error) { 
+
+console.error(
+"HR Vacate loading error:",
+error
+);
+
+
+if (target) { 
+
+target.innerHTML = ` 
+
+<div class="error-box"> 
+
+`${escapeHtml(
+error.message
+)} 
+
+</div> 
+
+`; 
+
+}
+}
+}
+
+
+function renderHRVacates(
+vacates
+) { 
+
+const target =
+firstElement([
+"hrVacateList"
+]);
+
+
+if (!target) return;
+
+
+let pending = 0;
+let approved = 0;
+let returned = 0;
+let overdue = 0;
+
+
+const today =
+new Date();
+
+
+today.setHours(
+0,
+0,
+0,
+0
+);
+
+
+vacates.forEach(item => { 
+
+const status =
+String(
+item.status ||
+"PENDING"
+).toUpperCase();
+
+
+if (
+status === "PENDING"
+) {
+pending++;
+}
+
+
+if (
+status === "APPROVED"
+) {
+approved++;
+}
+
+
+if (
+status === "RETURNED" ||
+status === "COMPLETED"
+) {
+returned++;
+}
+
+
+if (
+status === "APPROVED" &&
+item.return_date
+) { 
+
+const returnDate =
+new Date(
+item.return_date
+);
+
+
+returnDate.setHours(
+0,
+0,
+0,
+0
+);
+   if (
+returnDate < today
+) {
+overdue++;
+}
+} 
+
+});
+
+
+setText(
+["pendingVacateCount"],
+pending
+);
+
+
+setText(
+["approvedVacateCount"],
+approved
+);
+
+
+setText(
+["returnedVacateCount"],
+returned
+);
+
+
+setText(
+["overdueVacateCount"],
+overdue
+);
+
+
+if (!vacates.length) { 
+
+target.innerHTML = ` 
+
+<div class="notice">
+No vacate requests found.
+</div> 
+
+`; 
+
+return;
+}
+
+
+target.innerHTML =
+vacates
+.map(
+item => { 
+
+const status =
+String(
+item.status ||
+"PENDING"
+).toUpperCase();
+
+
+const employeeId =
+item.employee_id ||
+"-";
+
+
+const employeeName =
+item.name ||
+item.employee_name ||
+"-";
+
+
+const department =
+item.department ||
+"-";
+
+
+const room =
+item.room ||
+item.room_no ||
+"-";
+
+
+const bed =
+item.bed_no ||
+"-";
+
+
+const vacateDate =
+formatDate(
+item.vacate_date
+);
+
+
+const returnDate =
+formatDate(
+item.return_date
+);
+
+
+const reason =
+item.reason ||
+"-";
+
+
+let actionButtons = "";
+
+
+if (
+status === "PENDING"
+) { 
+
+actionButtons = ` 
+
+<div
+style="
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-top:12px;
+"
+> 
+
+<button
+class="success"
+style="margin-top:0;"
+onclick="approveHRVacate($`{Number(
+item.id
+)})"
+>
+✓ Approve
+</button>
+
+
+<button
+class="danger"
+style="margin-top:0;"
+onclick="rejectHRVacate(`${Number(
+item.id
+)})"
+>
+✕ Reject
+</button> 
+
+</div> 
+
+`;
+}
+
+
+return ` 
+
+<div class="card"> 
+
+<div
+style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:10px;
+"
+> 
+
+<div> 
+
+<strong
+style="
+font-size:16px;
+color:#075f31;
+"
+>
+$`{escapeHtml(
+employeeName
+)}
+</strong>
+
+
+<div class="small"> 
+
+Employee ID:
+`${escapeHtml(
+employeeId
+)} 
+
+</div> 
+
+</div>
+
+
+<span class="badge"> 
+
+$`{escapeHtml(
+status
+)} 
+
+</span> 
+
+</div>
+
+
+<div
+class="profile-row"
+style="margin-top:12px;"
+> 
+
+<span class="profile-label">
+Department
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+department
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Room / Bed
+</span> 
+
+<span class="profile-value"> 
+
+{escapeHtml(
+bed
+)} 
+
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Vacate Date
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+vacateDate
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Return Date
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+returnDate
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Reason
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+reason
+)}
+</span> 
+
+</div>
+
+
+`${actionButtons} 
+
+</div> 
+
+`; 
+
+}
+)
+.join("");
+}
+
+
+/* =========================
+HR VACATE APPROVE
+========================= */ 
+
+async function approveHRVacate(
+id
+) { 
+
+if (!id) return;
+
+
+const confirmed =
+confirm(
+"Approve this hostel vacate request?"
+);
+
+
+if (!confirmed) return;
+
+
+try { 
+
+const result =
+await api(
+/api/hr/vacates/${encodeURIComponent(
+id
+)}/approve`,
+{
+method: "POST"
+}
+);
+
+
+alert(
+result.message ||
+"Vacate request approved."
+);
+
+
+await loadHRVacates();
+
+
+await loadDashboard(); 
+
+} catch (error) { 
+
+alert(
+error.message
+); 
+
+}
+}
+
+
+/* =========================
+HR VACATE REJECT
+========================= */ 
+
+async function rejectHRVacate(
+id
+) { 
+
+if (!id) return;
+
+
+const confirmed =
+confirm(
+"Reject this hostel vacate request?"
+);
+
+
+if (!confirmed) return;
+
+
+try { 
+
+const result =
+await api(
+/api/hr/vacates/${encodeURIComponent(
+id
+)}/reject`,
+{
+method: "POST"
+}
+);
+
+
+alert(
+result.message ||
+"Vacate request rejected."
+);
+
+
+await loadHRVacates();
+
+
+await loadDashboard(); 
+
+} catch (error) { 
+
+alert(
+error.message
+); 
+
+}
+}
+
+
+/* =========================
+CAB QR SCANNER
+========================= */ 
+
+async function startScanner() { 
+
+if (scannerStream) {
+return;
+}
+
+
+const video =
+firstElement([
+"scannerVideo",
+"qrVideo",
+"cabScannerVideo"
+]);
+
+
+if (!video) { 
+
+alert(
+"Scanner video not found"
+); 
+
+return;
+}
+
+
+try { 
+
+scannerStream =
+await navigator
+.mediaDevices
+.getUserMedia({
+video: {
+facingMode: {
+ideal:
+"environment"
+}
+},
+audio: false
+});
+
+
+video.srcObject =
+scannerStream;
+
+
+await video.play();
+
+
+if (
+"BarcodeDetector" in
+window
+) { 
+
+try { 
+
+scannerDetector =
+new BarcodeDetector({
+formats: [
+"qr_code"
+]
+});
+
+
+scannerTimer =
+setInterval(
+() =>
+scanFrame(
+scannerDetector
+),
+500
+);
+
+
+return; 
+
+} catch (error) { 
+
+console.log(
+"BarcodeDetector unavailable",
+error
+); 
+
+}
+}
+
+
+await loadJsQR();
+
+
+scannerTimer =
+setInterval(
+scanFrameWithJsQR,
+500
+); 
+
+} catch (error) { 
+
+console.error(
+"Scanner error:",
+error
+);
+
+
+alert(
+"Camera permission required."
+); 
+
+}
+}
+
+
+async function scanFrame(
+detector
+) { 
+
+if (scannerBusy) return;
+
+
+const video =
+firstElement([
+"scannerVideo",
+"qrVideo",
+"cabScannerVideo"
+]);
+
+
+if (
+!video ||
+video.readyState < 2
+) {
+return;
+}
+
+
+scannerBusy = true;
+
+
+try { 
+
+const codes =
+await detector.detect(
+video
+);
+
+
+if (
+codes &&
+codes.length
+) { 
+
+const value =
+codes[0].rawValue;
+
+
+if (value) { 
+
+await handleDetectedQR(
+value
+); 
+
+} 
+
+} 
+
+} catch (error) { 
+
+console.error(
+"Barcode scan error:",
+error
+); 
+
+} finally { 
+
+scannerBusy = false; 
+
+}
+}
+
+
+async function loadJsQR() { 
+
+if (
+typeof jsQR !==
+"undefined"
+) {
+return;
+}
+
+
+if (jsQRLoaded) {
+return;
+}
+
+
+jsQRLoaded = true;
+
+
+await new Promise(
+(resolve, reject) => { 
+
+const script =
+document.createElement(
+"script"
+);
+
+
+script.src =
+"https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+
+
+script.onload =
+resolve;
+
+
+script.onerror =
+reject;
+
+
+document.head.appendChild(
+script
+); 
+
+}
+);
+}
+
+
+async function scanFrameWithJsQR() {
+   if (scannerBusy) return;
+
+
+if (
+typeof jsQR ===
+"undefined"
+) {
+return;
+}
+
+
+const video =
+firstElement([
+"scannerVideo",
+"qrVideo",
+"cabScannerVideo"
+]);
+
+
+const canvas =
+firstElement([
+"scannerCanvas",
+"qrCanvas",
+"cabScannerCanvas"
+]);
+
+
+if (!video || !canvas) {
+return;
+}
+
+
+if (
+video.readyState < 2
+) {
+return;
+}
+
+
+scannerBusy = true;
+
+
+try { 
+
+const width =
+video.videoWidth;
+
+
+const height =
+video.videoHeight;
+
+
+if (!width || !height) {
+return;
+}
+
+
+canvas.width =
+width;
+
+
+canvas.height =
+height;
+
+
+const ctx =
+canvas.getContext(
+"2d",
+{
+willReadFrequently:
+true
+}
+);
+
+
+ctx.drawImage(
+video,
+0,
+0,
+width,
+height
+);
+
+
+const imageData =
+ctx.getImageData(
+0,
+0,
+width,
+height
+);
+
+
+const code =
+jsQR(
+imageData.data,
+width,
+height
+);
+
+
+if (code?.data) { 
+
+await handleDetectedQR(
+code.data
+); 
+
+} 
+
+} catch (error) { 
+
+console.error(
+"jsQR error:",
+error
+); 
+
+} finally { 
+
+scannerBusy = false; 
+
+}
+}
+
+
+async function handleDetectedQR(
+qrToken
+) { 
+
+await processCabScan(
+qrToken
+);
+}
+
+
+async function processCabScan(
+qrToken
+) { 
+
+try { 
+
+const result =
+await api(
+"/api/cab/scan",
+{
+method: "POST", 
+
+body:
+JSON.stringify({
+qr_token:
+qrToken
+})
+}
+);
+
+
+const target =
+firstElement([
+"scannerMessage",
+"cabScannerMessage",
+"scanMessage"
+]);
+
+
+if (target) { 
+
+target.innerHTML = ` 
+
+<div class="success-box"> 
+
+<strong>
+Cab Entry Successful
+</strong> 
+
+<br> 
+
+Employee:
+$`{escapeHtml(
+result.employee?.name ||
+result.name ||
+"-"
+)} 
+
+<br> 
+
+Shift:
+`${escapeHtml(
+result.shift || "-"
+)} 
+
+<br> 
+
+Cab:
+$`{escapeHtml(
+result.cab || "-"
+)} 
+
+</div> 
+
+`; 
+
+}
+
+
+if (
+navigator.vibrate
+) { 
+
+navigator.vibrate(
+150
+); 
+
+}
+
+
+await loadDashboard(); 
+
+} catch (error) { 
+
+const target =
+firstElement([
+"scannerMessage",
+"cabScannerMessage",
+"scanMessage"
+]);
+
+
+if (target) { 
+
+target.innerHTML = ` 
+
+<div class="error-box"> 
+
+`${escapeHtml(
+error.message
+)} 
+
+</div> 
+
+`; 
+
+} 
+
+}
+}
+
+
+function stopScanner() { 
+
+if (scannerTimer) { 
+
+clearInterval(
+scannerTimer
+); 
+
+scannerTimer = null;
+}
+
+
+if (scannerStream) { 
+
+scannerStream
+.getTracks()
+.forEach(
+track => {
+track.stop();
+}
+);
+
+
+scannerStream = null;
+}
+
+
+const video =
+firstElement([
+"scannerVideo",
+"qrVideo",
+"cabScannerVideo"
+]);
+
+
+if (video) {
+video.srcObject = null;
+}
+
+
+scannerDetector = null;
+scannerBusy = false;
+}
+
+
+/* =========================
+HR EMPLOYEES
+========================= */ 
+
+async function loadEmployees() { 
+
+try { 
+
+const data =
+await api(
+"/api/employees"
+);
+
+
+const employees =
+data.employees || [];
+
+
+const target =
+firstElement([
+"employeesTableBody",
+"employeeTableBody",
+"hrEmployeesList",
+"employeesList"
+]);
+
+
+if (!target) return;
+
+
+target.innerHTML =
+employees
+.map(
+employee => ` 
+
+<tr> 
+
+<td>
+$`{escapeHtml(
+employee.employee_id
+)}
+</td> 
+
+<td>
+`${escapeHtml(
+employee.name
+)}
+</td> 
+
+<td>
+$`{escapeHtml(
+employee.department ||
+"-"
+)}
+</td> 
+
+<td>
+`${escapeHtml(
+employee.shift ||
+"-"
+)}
+</td> 
+
+<td>
+$`{escapeHtml(
+employee.room ||
+"-"
+)}
+</td> 
+
+<td>
+`${escapeHtml(
+employee.bed_no ||
+"-"
+)}
+</td> 
+
+<td>
+$`{escapeHtml(
+employee.hostel_status ||
+"IN"
+)}
+</td> 
+
+</tr> 
+
+`
+)
+.join(""); 
+
+} catch (error) { 
+
+console.error(
+"Employees loading error:",
+error
+); 
+
+}
+}
+
+
+/* =========================
+EXPORTS
+========================= */ 
+
+function downloadCabExcel() { 
+
+window.open(
+API +
+"/api/cab/export",
+"_blank"
+);
+}
+
+
+function downloadRoomsExcel() { 
+
+window.open(
+API +
+"/api/rooms/export",
+"_blank"
+);
+}
+
+
+function downloadShiftsExcel() { 
+
+window.open(
+API +
+"/api/shifts/export",
+"_blank"
+);
+}
+
+
+function downloadAttendanceExcel() { 
+
+window.open(
+API +
+"/api/attendance/export",
+"_blank"
+);
+}
+
+
+function downloadLeaveExcel() { 
+
+window.open(
+API +
+"/api/leave/export",
+"_blank"
+);
+}
+
+
+function downloadVacateExcel() { 
+
+window.open(
+API +
+"/api/vacate/export",
+"_blank"
+);
+}
+
+
+function downloadFoodExcel() { 
+
+window.open(
+API +
+"/api/food/export",
+"_blank"
+);
+}
+
+
+/* =========================
+FOOD QR
+========================= */ 
+
+function generateFoodQR() { 
+
+const box =
+firstElement([
+"foodQRCode",
+"foodQrCode",
+"foodQR"
+]);
+
+
+if (!box) return;
+
+
+box.innerHTML = "";
+
+
+if (
+typeof QRCode ===
+"undefined"
+) { 
+
+box.innerHTML =
+<p class="small"&gt;QR library loading...&lt;/p>;
+
+
+setTimeout(
+generateFoodQR,
+800
+);
+
+
+return;
+}
+
+
+const foodUrl =
+window.location.origin +
+"/food";
+
+
+new QRCode(
+box,
+{
+text: foodUrl,
+width: 240,
+height: 240,
+correctLevel:
+QRCode.CorrectLevel.M
+}
+);
+}
+
+
+/* =========================
+EMPLOYEE SHIFT
+========================= */ 
+
+async function saveEmployeeShift() { 
+
+const shift =
+getSelectValue([
+"employeeShift",
+"editEmployeeShift",
+"shiftSelect"
+]);
+
+
+const date =
+getValue([
+"employeeShiftDate",
+"shiftDate"
+]);
+
+
+if (!shift || !date) { 
+
+message(
+"shiftMessage",
+"Select date and shift",
+"error"
+); 
+
+return;
+}
+
+
+if (!currentEmployee) { 
+
+message(
+"shiftMessage",
+"Please login first",
+"error"
+); 
+
+return;
+}
+
+
+try { 
+
+const result =
+await api(
+"/api/shifts",
+{
+method: "POST", 
+
+body:
+JSON.stringify({
+employee_id:
+currentEmployee.employee_id, 
+
+date, 
+
+shift
+})
+}
+);
+
+
+message(
+"shiftMessage",
+result.message ||
+"Shift saved successfully."
+); 
+
+} catch (error) { 
+
+message(
+"shiftMessage",
+error.message,
+"error"
+); 
+
+}
+}
+
+
+/* =========================
+EMPLOYEE TAB HELPER
+========================= */ 
+
+function texmoEmployeeTab(
+tab
+) { 
+
+if (
+tab === "room" ||
+tab === "myroom"
+) { 
+
+loadMyRoom(); 
+
+}
+
+
+if (
+tab === "leave"
+) { 
+
+loadEmployeeLeave(); 
+
+}
+
+
+if (
+tab === "vacate"
+) { 
+
+loadEmployeeVacate(); 
+
+loadEmployeeCheckin(); 
+
+}
+
+
+if (
+tab === "attendance"
+) { 
+
+loadEmployeeAttendance(); 
+
+}
+
+
+if (
+tab === "food"
+) { 
+
+generateFoodQR(); 
+
+}
+}
+
+
+/* =========================
+HR TAB HELPER
+========================= */ 
+
+function texmoHRTab(
+tab
+) { 
+
+if (
+tab === "dashboard" ||
+tab === "hrDashboard"
+) { 
+
+loadDashboard(); 
+
+}
+
+
+if (
+tab === "employees" ||
+tab === "hrEmployees"
+) { 
+
+loadEmployees(); 
+
+}
+
+
+if (
+tab === "vacate" ||
+tab === "hrVacate"
+) { 
+
+loadHRVacates(); 
+
+}
+}
+
+
+/* =========================
+EMPLOYEE ATTENDANCE
+========================= */ 
+
+async function loadEmployeeAttendance() { 
+
+if (!currentEmployee) return;
+
+
+try { 
+
+const data =
+await api(
+/api/attendance/${encodeURIComponent(
+currentEmployee.employee_id
+)}`
+);
+
+
+renderEmployeeAttendance(
+data.attendance || []
+); 
+
+} catch (error) { 
+
+console.log(
+"Attendance API not ready yet:",
+error.message
+); 
+
+}
+}
+
+
+function renderEmployeeAttendance(
+records
+) { 
+
+const target =
+firstElement([
+"attendanceHistory",
+"employeeAttendanceHistory",
+"attendanceList"
+]);
+
+
+if (!target) return;
+
+
+if (!records.length) { 
+
+target.innerHTML =
+<p class="small"&gt;No attendance records.&lt;/p>; 
+
+return;
+}
+   target.innerHTML =
+records
+.map(
+item => ` 
+
+<div class="employee-card"> 
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Date
+</span> 
+
+<span class="profile-value">
+$`{escapeHtml(
+formatDate(
+item.date
+)
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Shift
+</span> 
+
+<span class="profile-value">
+`${escapeHtml(
+item.shift || "-"
+)}
+</span> 
+
+</div>
+
+
+<div class="profile-row"> 
+
+<span class="profile-label">
+Status
+</span> 
+
+<span class="profile-value"> 
+
+<span class="badge">
+$`{escapeHtml(
+item.status || "-"
+)}
+</span> 
+
+</span> 
+
+</div> 
+
+</div> 
+
+`
+)
+.join("");
+}
+
+
+/* =========================
+LOGOUT
+========================= */ 
+
+function logout() { 
+
+localStorage.removeItem(
+"texmo_employee_id"
+);
+
+
+localStorage.removeItem(
+"texmo_hr_login"
+);
+
+
+currentEmployee = null;
+
+
+stopScanner();
+
+
+showScreen(
+"home"
+);
+}
+
+
+/* =========================
+GLOBAL FUNCTION BINDING
+========================= */ 
+
+function bindTexmoFunctions() { 
+
+window.submitEmployeeLeave =
+submitEmployeeLeave;
+
+
+window.submitEmployeeVacate =
+submitEmployeeVacate;
+
+
+window.submitEmployeeCheckin =
+submitEmployeeCheckin;
+
+
+window.saveEmployeeShift =
+saveEmployeeShift;
+
+
+window.generateFoodQR =
+generateFoodQR;
+
+
+window.downloadCabExcel =
+downloadCabExcel;
+
+
+window.downloadRoomsExcel =
+downloadRoomsExcel;
+
+
+window.downloadShiftsExcel =
+downloadShiftsExcel;
+
+
+window.downloadAttendanceExcel =
+downloadAttendanceExcel;
+
+
+window.downloadLeaveExcel =
+downloadLeaveExcel;
+
+
+window.downloadVacateExcel =
+downloadVacateExcel;
+
+
+window.downloadFoodExcel =
+downloadFoodExcel;
+
+
+/*
+HR Vacate functions
+*/ 
+
+window.loadHRVacates =
+loadHRVacates;
+
+
+window.approveHRVacate =
+approveHRVacate;
+
+
+window.rejectHRVacate =
+rejectHRVacate;
+
+
+window.texmoHRTab =
+texmoHRTab; 
+
+}
+
+
+/* =========================
+PAGE START
+========================= */ 
+
+window.addEventListener(
+"DOMContentLoaded",
+async () => { 
+
+bindTexmoFunctions();
+
+
+const employeeId =
+localStorage.getItem(
+"texmo_employee_id"
+);
+
+
+if (employeeId) { 
+
+try { 
+
+const data =
+await api(
+/api/employees/${encodeURIComponent(
+employeeId
+)}`
+);
+
+
+currentEmployee =
+data.employee;
+
+
+showScreen(
+"employeePortal"
+);
+
+
+renderEmployee();
+
+
+await loadMyRoom();
+await loadEmployeeLeave();
+await loadEmployeeVacate();
+await loadEmployeeCheckin(); 
+
+} catch (error) { 
+
+localStorage.removeItem(
+"texmo_employee_id"
+);
+
+
+currentEmployee = null; 
+
+} 
+
+}
+
+
+const foodBox =
+firstElement([
+"foodQRCode",
+"foodQrCode",
+"foodQR"
+]);
+
+
+if (foodBox) { 
+
+generateFoodQR(); 
+
+} 
+
+}
+);
+
+
+/* =========================
+AUTO REFRESH
+========================= */ 
+
+setInterval(
+async () => { 
+
+if (!currentEmployee) {
+return;
+}
+
+
+try { 
+
+const data =
+await api(
+/api/employees/${encodeURIComponent( currentEmployee.employee_id )}
+);
+
+
+currentEmployee =
+data.employee;
+
+
+renderEmployee();
+
+
+await loadMyRoom(); 
+
+} catch (error) { 
+
+console.log(
+"Background refresh:",
+error.message
+); 
+
+} 
+
+},
+60000
 );
