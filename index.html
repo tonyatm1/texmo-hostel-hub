@@ -2,30 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-  <title>TEXMO · Hostel Hub</title>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#087443">
+  <title>TEXMO Hostel Hub</title>
 
   <style>
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      margin: 0;
       font-family: Arial, Helvetica, sans-serif;
-      background: #07111f;
-      color: #ffffff;
+      background:
+        linear-gradient(180deg, #063b25 0%, #087443 45%, #eaf8f0 45%, #f6fbf8 100%);
       min-height: 100vh;
+      color: #17382b;
     }
 
     button,
     input,
-    select,
-    textarea {
+    select {
       font: inherit;
     }
 
@@ -33,285 +32,406 @@
       cursor: pointer;
     }
 
-    .screen {
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    .container {
+    .app {
       width: 100%;
-      max-width: 760px;
-      margin: 0 auto;
+      max-width: 520px;
+      margin: auto;
+      min-height: 100vh;
     }
 
-    .header {
-      text-align: center;
-      padding: 30px 10px 20px;
+    .top {
+      padding: 28px 20px 30px;
+      color: white;
     }
 
-    .logo {
-      font-size: 34px;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .brand-logo {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.16);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 27px;
       font-weight: 800;
-      letter-spacing: 2px;
+      border: 1px solid rgba(255,255,255,0.25);
     }
 
-    .subtitle {
-      margin-top: 8px;
-      color: #9fb0c7;
-      font-size: 14px;
+    .brand h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
     }
 
-    .card {
-      background: #0d1b2d;
-      border: 1px solid #1c3048;
-      border-radius: 18px;
-      padding: 20px;
-      margin-bottom: 16px;
+    .brand p {
+      margin-top: 4px;
+      font-size: 12px;
+      opacity: 0.8;
     }
 
-    .card h2,
-    .card h3 {
-      margin-top: 0;
+    .screen {
+      display: none;
+      padding: 0 16px 30px;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .home-card {
+      margin-top: -2px;
+      background: white;
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 14px 35px rgba(0,0,0,0.12);
+    }
+
+    .welcome {
+      margin-bottom: 20px;
+    }
+
+    .welcome small {
+      color: #6c8177;
+      font-size: 12px;
+    }
+
+    .welcome h2 {
+      margin-top: 5px;
+      font-size: 25px;
+      color: #073d27;
+    }
+
+    .welcome p {
+      margin-top: 7px;
+      color: #718078;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     .portal-grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
 
-    .portal-button {
-      width: 100%;
-      min-height: 72px;
+    .portal-card {
       border: 0;
-      border-radius: 16px;
-      background: #173657;
-      color: #ffffff;
-      font-size: 18px;
-      font-weight: 700;
-      padding: 16px;
+      min-height: 142px;
+      border-radius: 20px;
+      padding: 18px;
+      text-align: left;
+      background: #f1faf5;
+      border: 1px solid #d8eee1;
+      color: #123c2a;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .portal-button:active,
-    .primary:active,
-    .secondary:active,
-    .danger:active {
+    .portal-card:active {
       transform: scale(0.98);
     }
 
-    .primary,
-    .secondary,
-    .danger,
-    .back-button {
-      width: 100%;
-      min-height: 48px;
-      border: 0;
-      border-radius: 12px;
-      padding: 12px 16px;
-      margin-top: 10px;
-      font-weight: 700;
+    .portal-card:hover {
+      box-shadow: 0 8px 20px rgba(8,116,67,0.12);
     }
 
-    .primary {
-      background: #1d8cff;
-      color: #fff;
+    .portal-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: #087443;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 21px;
+      margin-bottom: 14px;
     }
 
-    .secondary {
-      background: #26384d;
-      color: #fff;
-    }
-
-    .danger {
-      background: #9b2c2c;
-      color: #fff;
-    }
-
-    .back-button {
-      background: transparent;
-      border: 1px solid #29415c;
-      color: #b8c7d9;
-    }
-
-    label {
+    .portal-card strong {
       display: block;
-      margin: 14px 0 7px;
-      color: #b8c7d9;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 15px;
     }
 
-    input,
-    select,
-    textarea {
-      width: 100%;
-      min-height: 48px;
+    .portal-card span {
+      display: block;
+      margin-top: 5px;
+      font-size: 11px;
+      color: #718078;
+      line-height: 1.4;
+    }
+
+    .portal-card.security {
+      background: linear-gradient(145deg, #effaf4, #e3f5eb);
+      border-color: #b9dfc8;
+    }
+
+    .portal-card.security .portal-icon {
+      background: #064c2f;
+    }
+
+    .screen-head {
+      background: white;
+      border-radius: 22px;
+      padding: 19px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+
+    .back {
+      border: 0;
+      background: #edf7f1;
+      color: #087443;
+      padding: 9px 13px;
       border-radius: 11px;
-      border: 1px solid #2b435e;
-      background: #081522;
-      color: #fff;
-      padding: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 15px;
+    }
+
+    .screen-head h2 {
+      font-size: 22px;
+      color: #073d27;
+    }
+
+    .screen-head p {
+      margin-top: 5px;
+      color: #718078;
+      font-size: 12px;
+    }
+
+    .form-card {
+      background: white;
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #426052;
+      margin-bottom: 7px;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      height: 48px;
+      border-radius: 13px;
+      border: 1px solid #d5e4dc;
+      padding: 0 14px;
+      background: #fbfdfc;
+      color: #183c2c;
       outline: none;
     }
 
-    textarea {
-      min-height: 100px;
-      resize: vertical;
+    .field input:focus,
+    .field select:focus {
+      border-color: #087443;
+      box-shadow: 0 0 0 3px rgba(8,116,67,0.09);
     }
 
-    input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: #1d8cff;
+    .primary-btn {
+      width: 100%;
+      min-height: 50px;
+      border: 0;
+      border-radius: 14px;
+      background: #087443;
+      color: white;
+      font-weight: 800;
+      margin-top: 6px;
+      box-shadow: 0 7px 16px rgba(8,116,67,0.2);
     }
 
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+    .primary-btn:active {
+      transform: scale(0.99);
+    }
+
+    .secondary-btn {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid #cfe3d8;
+      border-radius: 13px;
+      background: #f4faf7;
+      color: #087443;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+
+    .security-note {
+      background: #f0f8f3;
+      border: 1px solid #cde6d7;
+      border-radius: 15px;
+      padding: 13px;
       margin-bottom: 16px;
+      font-size: 11px;
+      color: #49675a;
+      line-height: 1.5;
     }
 
-    .topbar h1 {
+    .security-note strong {
+      display: block;
+      color: #064c2f;
+      margin-bottom: 3px;
+    }
+
+    .message {
+      display: none;
+      margin-top: 13px;
+      border-radius: 12px;
+      padding: 11px 13px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .message.show {
+      display: block;
+    }
+
+    .message.error {
+      background: #fff0f0;
+      color: #9c2929;
+      border: 1px solid #f2cccc;
+    }
+
+    .message.success {
+      background: #edf9f2;
+      color: #17653e;
+      border: 1px solid #c7e8d4;
+    }
+
+    .portal-shell {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .portal-title {
+      padding: 20px;
+      background: linear-gradient(135deg, #087443, #075d37);
+      color: white;
+    }
+
+    .portal-title h2 {
       font-size: 21px;
-      margin: 0;
     }
 
-    .topbar button {
-      width: auto;
-      min-width: 90px;
-      margin: 0;
+    .portal-title p {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-top: 5px;
     }
 
     .tabs {
       display: flex;
-      gap: 8px;
       overflow-x: auto;
-      padding-bottom: 8px;
-      margin-bottom: 14px;
+      border-bottom: 1px solid #e4eee9;
+      background: white;
     }
 
-    .tab-button {
+    .tab {
       flex: 0 0 auto;
-      border: 1px solid #29415c;
-      background: #102238;
-      color: #b8c7d9;
-      border-radius: 10px;
-      padding: 10px 14px;
-      min-height: 42px;
+      border: 0;
+      background: white;
+      color: #718078;
+      padding: 15px 16px;
+      font-size: 11px;
+      font-weight: 700;
     }
 
-    .tab-button.active {
-      background: #1d8cff;
-      color: #fff;
-      border-color: #1d8cff;
+    .tab.active {
+      color: #087443;
+      box-shadow: inset 0 -3px #087443;
     }
 
     .tab-content {
       display: none;
+      padding: 18px;
     }
 
     .tab-content.active {
       display: block;
     }
 
-    .info-grid {
+    .dashboard-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 11px;
     }
 
-    .info-box {
-      background: #091827;
-      border: 1px solid #1b3048;
-      border-radius: 12px;
-      padding: 14px;
+    .stat {
+      padding: 16px;
+      border-radius: 17px;
+      background: #f3faf6;
+      border: 1px solid #dceee4;
     }
 
-    .info-label {
-      color: #8295ad;
-      font-size: 12px;
-      margin-bottom: 5px;
+    .stat span {
+      font-size: 10px;
+      color: #718078;
     }
 
-    .info-value {
-      font-weight: 700;
-      word-break: break-word;
+    .stat strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 23px;
+      color: #087443;
     }
 
-    .status {
-      margin-top: 12px;
-      padding: 12px;
-      border-radius: 10px;
-      background: #102238;
-      color: #b8c7d9;
+    .section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #174432;
+      margin-bottom: 12px;
+    }
+
+    .employee-box {
+      padding: 15px;
+      border-radius: 15px;
+      background: #f5faf7;
+      border: 1px solid #dfede5;
+      margin-bottom: 10px;
+    }
+
+    .employee-box strong {
+      display: block;
+      color: #164631;
       font-size: 14px;
     }
 
-    .qr-box {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 220px;
-      background: #fff;
-      border-radius: 14px;
-      padding: 15px;
-      margin-top: 14px;
-    }
-
-    #employeeQR,
-    #foodQR {
-      background: #fff;
-    }
-
-    .meal-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-
-    .meal {
-      background: #091827;
-      border: 1px solid #1b3048;
-      border-radius: 12px;
-      padding: 14px;
-    }
-
-    .meal-title {
-      font-weight: 700;
-      margin-bottom: 5px;
-    }
-
-    .muted {
-      color: #8295ad;
-      font-size: 13px;
-    }
-
-    .empty {
-      text-align: center;
-      color: #8295ad;
-      padding: 25px 10px;
+    .employee-box span {
+      display: block;
+      color: #738279;
+      font-size: 11px;
+      margin-top: 4px;
     }
 
     .footer {
       text-align: center;
-      color: #60758f;
-      font-size: 12px;
-      padding: 20px 0 10px;
+      padding: 20px;
+      color: #789084;
+      font-size: 10px;
     }
 
-    @media (min-width: 600px) {
+    @media (max-width: 380px) {
       .portal-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
       }
 
-      .meal-grid {
-        grid-template-columns: repeat(3, 1fr);
+      .home-card {
+        padding: 18px;
       }
     }
   </style>
@@ -319,363 +439,604 @@
 
 <body>
 
-  <!-- HOME -->
-  <section id="homeScreen" class="screen">
-    <div class="container">
+<div class="app">
 
-      <div class="header">
-        <div class="logo">TEXMO</div>
-        <div class="subtitle">Hostel Hub · Employee Services</div>
+  <!-- HEADER -->
+  <header class="top">
+    <div class="brand">
+      <div class="brand-logo">T</div>
+      <div>
+        <h1>TEXMO HOSTEL HUB</h1>
+        <p>Employee • Hostel • Cab • HR Management</p>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- HOME -->
+  <section id="homeScreen" class="screen active">
+
+    <div class="home-card">
+
+      <div class="welcome">
+        <small>WELCOME</small>
+        <h2>TEXMO Hostel Hub</h2>
+        <p>
+          One secure place for employees, hostel management,
+          cab tracking and HR operations.
+        </p>
       </div>
 
-      <div class="card">
-        <h2>Welcome</h2>
-        <p class="muted">
-          Hostel, room, cab and employee services in one place.
-        </p>
-
-        <div class="portal-grid">
-
-          <button
-            type="button"
-            class="portal-button"
-            onclick="openPortal('employeeLogin')">
-            👤 Employee Portal
-          </button>
-
-          <button
-            type="button"
-            class="portal-button"
-            onclick="openPortal('hrLogin')">
-            🛡️ HR Portal
-          </button>
-
-        </div>
+      <div class="portal-grid">
 
         <button
           type="button"
-          class="secondary"
-          onclick="openPortal('employeeRegister')">
-          New Employee Registration
-        </button>
-      </div>
+          class="portal-card"
+          onclick="showScreen('employeeLogin')">
 
-      <div class="footer">
-        TEXMO · Hostel Hub
+          <div class="portal-icon">👤</div>
+
+          <strong>Employee Portal</strong>
+
+          <span>
+            Room, Cab, Leave, Food and personal hostel services
+          </span>
+
+        </button>
+
+
+        <button
+          type="button"
+          class="portal-card"
+          onclick="showScreen('hrLogin')">
+
+          <div class="portal-icon">🧑‍💼</div>
+
+          <strong>HR Portal</strong>
+
+          <span>
+            Dashboard, Employees, Rooms, Cab and approvals
+          </span>
+
+        </button>
+
+
+        <button
+          type="button"
+          class="portal-card"
+          onclick="showScreen('employeeRegister')">
+
+          <div class="portal-icon">📝</div>
+
+          <strong>Employee Registration</strong>
+
+          <span>
+            Register employee details and hostel eligibility
+          </span>
+
+        </button>
+
+
+        <button
+          type="button"
+          class="portal-card security"
+          onclick="showScreen('hrRegister')">
+
+          <div class="portal-icon">🔐</div>
+
+          <strong>HR Registration</strong>
+
+          <span>
+            Secure HR account creation with Master Key verification
+          </span>
+
+        </button>
+
       </div>
 
     </div>
+
+    <div class="footer">
+      TEXMO • Hostel Hub 2.0<br>
+      Secure workforce management system
+    </div>
+
   </section>
 
 
   <!-- EMPLOYEE LOGIN -->
-  <section id="employeeLogin" class="screen hidden">
-    <div class="container">
+  <section id="employeeLogin" class="screen">
 
-      <div class="topbar">
-        <h1>Employee Login</h1>
-        <button type="button" class="secondary" onclick="openPortal('homeScreen')">
-          Back
-        </button>
-      </div>
+    <div class="screen-head">
+      <button type="button" class="back" onclick="showScreen('homeScreen')">
+        ← Back
+      </button>
 
-      <div class="card">
+      <h2>Employee Login</h2>
+      <p>Access your personal TEXMO Hostel Hub</p>
+    </div>
 
-        <label for="employeeLoginId">Employee ID</label>
+    <div class="form-card">
+
+      <div class="field">
+        <label>Employee ID</label>
         <input
           id="employeeLoginId"
           type="text"
           inputmode="numeric"
-          placeholder="Enter employee ID">
+          placeholder="Enter Employee ID">
+      </div>
 
-        <label for="employeeLoginPhone">Phone Number</label>
+      <div class="field">
+        <label>Password / PIN</label>
         <input
-          id="employeeLoginPhone"
-          type="tel"
-          inputmode="numeric"
-          placeholder="Enter registered phone number">
+          id="employeeLoginPassword"
+          type="password"
+          placeholder="Enter password">
+      </div>
 
-        <button
-          type="button"
-          class="primary"
-          onclick="employeeLogin()">
-          Login
-        </button>
+      <button
+        type="button"
+        class="primary-btn"
+        onclick="employeeLogin()">
+        LOGIN AS EMPLOYEE
+      </button>
 
-        <button
-          type="button"
-          class="secondary"
-          onclick="openPortal('employeeRegister')">
-          New Employee? Register
-        </button>
+      <div id="employeeLoginMessage" class="message"></div>
 
-        <div id="employeeLoginStatus" class="status hidden"></div>
+    </div>
+
+  </section>
+
+
+  <!-- HR LOGIN -->
+  <section id="hrLogin" class="screen">
+
+    <div class="screen-head">
+
+      <button type="button" class="back" onclick="showScreen('homeScreen')">
+        ← Back
+      </button>
+
+      <h2>HR Login</h2>
+      <p>Authorized HR access only</p>
+
+    </div>
+
+    <div class="form-card">
+
+      <div class="security-note">
+        <strong>🔐 Secure HR Access</strong>
+        Use your registered HR ID and password.
+        HR approval modules will be protected by server-side authorization.
+      </div>
+
+      <div class="field">
+        <label>HR ID</label>
+
+        <input
+          id="hrLoginId"
+          type="text"
+          autocomplete="username"
+          placeholder="Enter HR ID">
+      </div>
+
+      <div class="field">
+        <label>Password</label>
+
+        <input
+          id="hrLoginPassword"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Enter password">
+      </div>
+
+      <button
+        type="button"
+        class="primary-btn"
+        onclick="hrLogin()">
+        LOGIN AS HR
+      </button>
+
+      <button
+        type="button"
+        class="secondary-btn"
+        onclick="showScreen('hrRegister')">
+        CREATE HR ACCOUNT
+      </button>
+
+      <div id="hrLoginMessage" class="message"></div>
+
+    </div>
+
+  </section>
+
+
+  <!-- HR REGISTRATION -->
+  <section id="hrRegister" class="screen">
+
+    <div class="screen-head">
+
+      <button type="button" class="back" onclick="showScreen('homeScreen')">
+        ← Back
+      </button>
+
+      <h2>HR Registration 🔐</h2>
+
+      <p>
+        Create an authorized HR account
+      </p>
+
+    </div>
+
+
+    <div class="form-card">
+
+      <div class="security-note">
+
+        <strong>🔐 Final Master Key Required</strong>
+
+        Only authorized HR personnel with the valid Master Key
+        can create an HR account.
+
+        <br><br>
+
+        The actual Master Key will NOT be stored in this HTML.
+        It will be verified securely by the Cloudflare Worker.
 
       </div>
 
+
+      <!-- HR NAME -->
+      <div class="field">
+
+        <label>HR Name</label>
+
+        <input
+          id="hrRegName"
+          type="text"
+          autocomplete="name"
+          placeholder="Enter HR name">
+
+      </div>
+
+
+      <!-- HR ID -->
+      <div class="field">
+
+        <label>HR ID</label>
+
+        <input
+          id="hrRegId"
+          type="text"
+          autocomplete="username"
+          placeholder="Create / enter HR ID">
+
+      </div>
+
+
+      <!-- DEPARTMENT -->
+      <div class="field">
+
+        <label>Department</label>
+
+        <select id="hrRegDepartment">
+
+          <option value="">Select Department</option>
+
+          <option value="HR">
+            HR
+          </option>
+
+          <option value="ADMIN">
+            Administration
+          </option>
+
+          <option value="MANAGEMENT">
+            Management
+          </option>
+
+          <option value="OTHER">
+            Other
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <!-- DESIGNATION -->
+      <div class="field">
+
+        <label>Designation</label>
+
+        <input
+          id="hrRegDesignation"
+          type="text"
+          placeholder="HR / Manager / Officer">
+
+      </div>
+
+
+      <!-- PHONE -->
+      <div class="field">
+
+        <label>Phone Number</label>
+
+        <input
+          id="hrRegPhone"
+          type="tel"
+          inputmode="numeric"
+          autocomplete="tel"
+          maxlength="10"
+          placeholder="Enter 10-digit phone number">
+
+      </div>
+
+
+      <!-- PASSWORD -->
+      <div class="field">
+
+        <label>Password</label>
+
+        <input
+          id="hrRegPassword"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Create secure password">
+
+      </div>
+
+
+      <!-- MASTER KEY -->
+      <div class="field">
+
+        <label>Final Master Key</label>
+
+        <input
+          id="hrRegMasterKey"
+          type="password"
+          autocomplete="off"
+          placeholder="Enter final Master Key">
+
+      </div>
+
+
+      <button
+        type="button"
+        class="primary-btn"
+        onclick="registerHR()">
+        REGISTER AS HR
+      </button>
+
+
+      <div id="hrRegisterMessage" class="message"></div>
+
+
     </div>
+
   </section>
 
 
   <!-- EMPLOYEE REGISTRATION -->
-  <section id="employeeRegister" class="screen hidden">
-    <div class="container">
+  <section id="employeeRegister" class="screen">
 
-      <div class="topbar">
-        <h1>Employee Registration</h1>
-        <button type="button" class="secondary" onclick="openPortal('homeScreen')">
-          Back
-        </button>
-      </div>
+    <div class="screen-head">
 
-      <div class="card">
+      <button type="button" class="back" onclick="showScreen('homeScreen')">
+        ← Back
+      </button>
 
-        <label for="employeeId">Employee ID</label>
+      <h2>Employee Registration</h2>
+
+      <p>
+        Register employee details for hostel management
+      </p>
+
+    </div>
+
+
+    <div class="form-card">
+
+      <div class="field">
+        <label>Employee ID</label>
+
         <input
-          id="employeeId"
+          id="employeeRegId"
           type="text"
           inputmode="numeric"
           placeholder="Employee ID">
+      </div>
 
-        <label for="employeeName">Full Name</label>
+
+      <div class="field">
+        <label>Employee Name</label>
+
         <input
-          id="employeeName"
+          id="employeeRegName"
           type="text"
-          placeholder="Full name">
+          placeholder="Employee name">
+      </div>
 
-        <label for="employeeDepartment">Department</label>
-        <select id="employeeDepartment">
-          <option value="">Select department</option>
+
+      <div class="field">
+        <label>Department</label>
+
+        <select id="employeeRegDepartment">
+
+          <option value="">Select Department</option>
+
           <option value="Production">Production</option>
           <option value="Quality">Quality</option>
-          <option value="PDN">PDN</option>
           <option value="PDN2">PDN2</option>
           <option value="Maintenance">Maintenance</option>
+          <option value="Stores">Stores</option>
           <option value="HR">HR</option>
           <option value="Other">Other</option>
+
         </select>
-
-        <label for="employeeDesignation">Designation</label>
-        <input
-          id="employeeDesignation"
-          type="text"
-          placeholder="Designation">
-
-        <label for="employeePhone">Phone Number</label>
-        <input
-          id="employeePhone"
-          type="tel"
-          inputmode="numeric"
-          placeholder="10 digit phone number">
-
-        <label for="employeeShift">Shift</label>
-        <select id="employeeShift">
-          <option value="">Select shift</option>
-          <option value="7:30 AM-4:00 PM">7:30 AM-4:00 PM</option>
-          <option value="4:00 PM-12:30 AM">4:00 PM-12:30 AM</option>
-          <option value="12:30 AM-7:30 AM">12:30 AM-7:30 AM</option>
-        </select>
-
-        <label for="employeeType">Employee Type</label>
-        <select id="employeeType">
-          <option value="employee">Employee</option>
-          <option value="internship">Internship</option>
-          <option value="new_joiner">New Joiner</option>
-        </select>
-
-        <label for="employeeRoom">Preferred Room</label>
-        <select id="employeeRoom">
-          <option value="">Select room</option>
-          <option value="A1">A1</option>
-          <option value="A2">A2</option>
-          <option value="A3">A3</option>
-          <option value="A4">A4</option>
-          <option value="B1">B1</option>
-          <option value="B2">B2</option>
-          <option value="B3">B3</option>
-          <option value="B4">B4</option>
-          <option value="B5">B5</option>
-          <option value="B6">B6</option>
-          <option value="B7">B7</option>
-          <option value="B8">B8</option>
-          <option value="C1">C1</option>
-          <option value="C2">C2</option>
-          <option value="C3">C3</option>
-          <option value="C4">C4</option>
-          <option value="C5">C5</option>
-          <option value="C6">C6</option>
-          <option value="C7">C7</option>
-          <option value="C8">C8</option>
-          <option value="D1">D1</option>
-          <option value="D2">D2</option>
-          <option value="D3">D3</option>
-          <option value="D4">D4</option>
-        </select>
-
-        <button
-          type="button"
-          class="primary"
-          onclick="registerEmployee()">
-          Register Employee
-        </button>
-
-        <div id="registerStatus" class="status hidden"></div>
 
       </div>
 
+
+      <div class="field">
+        <label>Designation</label>
+
+        <input
+          id="employeeRegDesignation"
+          type="text"
+          placeholder="Designation">
+      </div>
+
+
+      <div class="field">
+        <label>Phone Number</label>
+
+        <input
+          id="employeeRegPhone"
+          type="tel"
+          inputmode="numeric"
+          maxlength="10"
+          placeholder="10-digit phone number">
+      </div>
+
+
+      <div class="field">
+        <label>Employee Type</label>
+
+        <select id="employeeRegType">
+
+          <option value="">Select Type</option>
+          <option value="Employee">Employee</option>
+          <option value="Internship">Internship</option>
+          <option value="New Joiner">New Joiner</option>
+
+        </select>
+
+      </div>
+
+
+      <div class="field">
+        <label>Shift</label>
+
+        <select id="employeeRegShift">
+
+          <option value="">Select Shift</option>
+
+          <option value="7:30 AM - 4:00 PM">
+            7:30 AM - 4:00 PM
+          </option>
+
+          <option value="4:00 PM - 12:30 AM">
+            4:00 PM - 12:30 AM
+          </option>
+
+          <option value="12:30 AM - 7:30 AM">
+            12:30 AM - 7:30 AM
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <button
+        type="button"
+        class="primary-btn"
+        onclick="registerEmployee()">
+        REGISTER EMPLOYEE
+      </button>
+
+
+      <div id="employeeRegisterMessage" class="message"></div>
+
     </div>
+
   </section>
 
 
   <!-- EMPLOYEE PORTAL -->
-  <section id="employeePortal" class="screen hidden">
-    <div class="container">
+  <section id="employeePortal" class="screen">
 
-      <div class="topbar">
-        <h1>Employee Portal</h1>
-        <button type="button" class="danger" onclick="logout()">
-          Logout
-        </button>
+    <div class="portal-shell">
+
+      <div class="portal-title">
+
+        <h2>Employee Portal</h2>
+
+        <p id="employeeWelcome">
+          Welcome to TEXMO Hostel Hub
+        </p>
+
       </div>
+
 
       <div class="tabs">
 
         <button
           type="button"
-          class="tab-button active"
-          onclick="employeeTab('employeeHomeTab', this)">
+          class="tab active"
+          onclick="employeeTab('employeeHome')">
           Home
         </button>
 
         <button
           type="button"
-          class="tab-button"
-          onclick="employeeTab('employeeRoomTab', this)">
+          class="tab"
+          onclick="employeeTab('employeeRoom')">
           My Room
         </button>
 
         <button
           type="button"
-          class="tab-button"
-          onclick="employeeTab('employeeCabTab', this)">
-          Cab QR
+          class="tab"
+          onclick="employeeTab('employeeCab')">
+          Cab
         </button>
 
         <button
           type="button"
-          class="tab-button"
-          onclick="employeeTab('employeeFoodTab', this)">
-          Food
-        </button>
-
-        <button
-          type="button"
-          class="tab-button"
-          onclick="employeeTab('employeeLeaveTab', this)">
+          class="tab"
+          onclick="employeeTab('employeeLeave')">
           Leave
         </button>
 
+        <button
+          type="button"
+          class="tab"
+          onclick="employeeTab('employeeFood')">
+          Food
+        </button>
+
       </div>
 
 
-      <!-- EMPLOYEE HOME -->
-      <div id="employeeHomeTab" class="tab-content active">
+      <div id="employeeHome" class="tab-content active">
 
-        <div class="card">
-          <h2>Welcome</h2>
-
-          <div class="info-grid">
-
-            <div class="info-box">
-              <div class="info-label">Employee ID</div>
-              <div id="employeeProfileId" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Name</div>
-              <div id="employeeProfileName" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Department</div>
-              <div id="employeeProfileDepartment" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Shift</div>
-              <div id="employeeProfileShift" class="info-value">-</div>
-            </div>
-
-          </div>
-
-          <button
-            type="button"
-            class="primary"
-            onclick="loadEmployee()">
-            Refresh Details
-          </button>
-
+        <div class="section-title">
+          My Hostel Summary
         </div>
 
-      </div>
+        <div class="dashboard-grid">
 
-
-      <!-- ROOM -->
-      <div id="employeeRoomTab" class="tab-content">
-
-        <div class="card">
-          <h2>My Room</h2>
-
-          <div id="employeeRoomDetails" class="info-grid">
-            <div class="info-box">
-              <div class="info-label">Room</div>
-              <div id="myRoomNumber" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Bed</div>
-              <div id="myBedNumber" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Hostel Status</div>
-              <div id="myRoomStatus" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Return Date</div>
-              <div id="myReturnDate" class="info-value">-</div>
-            </div>
+          <div class="stat">
+            <span>Room</span>
+            <strong id="employeeRoomValue">-</strong>
           </div>
 
-          <button
-            type="button"
-            class="primary"
-            onclick="loadEmployee()">
-            Refresh Room
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <!-- CAB -->
-      <div id="employeeCabTab" class="tab-content">
-
-        <div class="card">
-          <h2>Employee Cab QR</h2>
-
-          <p class="muted">
-            Show this QR to the authorized cab scanner.
-          </p>
-
-          <div class="qr-box">
-            <div id="employeeQR"></div>
+          <div class="stat">
+            <span>Bed</span>
+            <strong id="employeeBedValue">-</strong>
           </div>
 
-          <div id="employeeQRDetails" class="status">
-            Employee details will appear here.
+          <div class="stat">
+            <span>Hostel Status</span>
+            <strong id="employeeHostelStatus">-</strong>
+          </div>
+
+          <div class="stat">
+            <span>Cab</span>
+            <strong id="employeeCabValue">-</strong>
           </div>
 
         </div>
@@ -683,181 +1044,112 @@
       </div>
 
 
-      <!-- FOOD -->
-      <div id="employeeFoodTab" class="tab-content">
+      <div id="employeeRoom" class="tab-content">
 
-        <div class="card">
-          <h2>Food</h2>
+        <div class="section-title">
+          My Room
+        </div>
 
-          <div class="meal-grid">
-
-            <div class="meal">
-              <div class="meal-title">Breakfast</div>
-              <div class="muted">Hostel breakfast</div>
-            </div>
-
-            <div class="meal">
-              <div class="meal-title">Lunch</div>
-              <div class="muted">Hostel lunch</div>
-            </div>
-
-            <div class="meal">
-              <div class="meal-title">Dinner</div>
-              <div class="muted">Hostel dinner</div>
-            </div>
-
-          </div>
-
-          <div class="qr-box">
-            <div id="foodQR"></div>
-          </div>
-
+        <div id="employeeRoomDetails">
+          Loading room details...
         </div>
 
       </div>
 
 
-      <!-- LEAVE -->
-      <div id="employeeLeaveTab" class="tab-content">
+      <div id="employeeCab" class="tab-content">
 
-        <div class="card">
-          <h2>Leave / Vacate</h2>
+        <div class="section-title">
+          Cab
+        </div>
 
-          <label for="employeeLeaveFrom">
-            From Date
-          </label>
-          <input id="employeeLeaveFrom" type="date">
+        <div id="employeeCabDetails">
+          Cab information will appear here.
+        </div>
 
-          <label for="employeeLeaveTo">
-            To Date
-          </label>
-          <input id="employeeLeaveTo" type="date">
+      </div>
 
-          <label for="employeeLeaveReason">
-            Reason
-          </label>
-          <textarea
-            id="employeeLeaveReason"
-            placeholder="Enter reason"></textarea>
 
-          <button
-            type="button"
-            class="primary"
-            onclick="submitEmployeeLeave()">
-            Submit Leave
-          </button>
+      <div id="employeeLeave" class="tab-content">
 
-          <div id="employeeLeaveStatus" class="status hidden"></div>
+        <div class="section-title">
+          Leave
+        </div>
 
+        <div id="employeeLeaveDetails">
+          Leave management will appear here.
+        </div>
+
+      </div>
+
+
+      <div id="employeeFood" class="tab-content">
+
+        <div class="section-title">
+          Food
+        </div>
+
+        <div id="employeeFoodDetails">
+          Breakfast • Lunch • Dinner
         </div>
 
       </div>
 
     </div>
-  </section>
 
-
-  <!-- HR LOGIN -->
-  <section id="hrLogin" class="screen hidden">
-    <div class="container">
-
-      <div class="topbar">
-        <h1>HR Login</h1>
-
-        <button
-          type="button"
-          class="secondary"
-          onclick="openPortal('homeScreen')">
-          Back
-        </button>
-      </div>
-
-      <div class="card">
-
-        <label for="hrUsername">
-          Username
-        </label>
-
-        <input
-          id="hrUsername"
-          type="text"
-          autocomplete="username"
-          placeholder="HR username">
-
-        <label for="hrPassword">
-          Password
-        </label>
-
-        <input
-          id="hrPassword"
-          type="password"
-          autocomplete="current-password"
-          placeholder="Password">
-
-        <button
-          type="button"
-          class="primary"
-          onclick="hrLogin()">
-          HR Login
-        </button>
-
-        <div id="hrLoginStatus" class="status hidden"></div>
-
-      </div>
-
-    </div>
   </section>
 
 
   <!-- HR PORTAL -->
-  <section id="hrPortal" class="screen hidden">
-    <div class="container">
+  <section id="hrPortal" class="screen">
 
-      <div class="topbar">
-        <h1>HR Portal</h1>
+    <div class="portal-shell">
 
-        <button
-          type="button"
-          class="danger"
-          onclick="logout()">
-          Logout
-        </button>
+      <div class="portal-title">
+
+        <h2>HR Portal</h2>
+
+        <p id="hrWelcome">
+          Authorized HR Dashboard
+        </p>
+
       </div>
+
 
       <div class="tabs">
 
         <button
           type="button"
-          class="tab-button active"
-          onclick="hrTab('hrDashboardTab', this)">
+          class="tab active"
+          onclick="hrTab('hrDashboard')">
           Dashboard
         </button>
 
         <button
           type="button"
-          class="tab-button"
-          onclick="hrTab('hrEmployeesTab', this)">
+          class="tab"
+          onclick="hrTab('hrCab')">
+          Cab
+        </button>
+
+        <button
+          type="button"
+          class="tab"
+          onclick="hrTab('hrEmployees')">
           Employees
         </button>
 
         <button
           type="button"
-          class="tab-button"
-          onclick="hrTab('hrCabTab', this)">
-          Cab Scanner
-        </button>
-
-        <button
-          type="button"
-          class="tab-button"
-          onclick="hrTab('hrRoomsTab', this)">
+          class="tab"
+          onclick="hrTab('hrRooms')">
           Rooms
         </button>
 
         <button
           type="button"
-          class="tab-button"
-          onclick="hrTab('hrLeaveTab', this)">
+          class="tab"
+          onclick="hrTab('hrLeave')">
           Leave
         </button>
 
@@ -865,62 +1157,42 @@
 
 
       <!-- HR DASHBOARD -->
-      <div id="hrDashboardTab" class="tab-content active">
+      <div id="hrDashboard" class="tab-content active">
 
-        <div class="card">
-          <h2>Dashboard</h2>
-
-          <div class="info-grid">
-
-            <div class="info-box">
-              <div class="info-label">Employees</div>
-              <div id="hrEmployeeCount" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Hostel</div>
-              <div id="hrHostelCount" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Cab</div>
-              <div id="hrCabCount" class="info-value">-</div>
-            </div>
-
-            <div class="info-box">
-              <div class="info-label">Pending</div>
-              <div id="hrPendingCount" class="info-value">-</div>
-            </div>
-
-          </div>
-
-          <button
-            type="button"
-            class="primary"
-            onclick="loadDashboard()">
-            Refresh Dashboard
-          </button>
-
+        <div class="section-title">
+          Hostel Overview
         </div>
 
-      </div>
+        <div class="dashboard-grid">
 
+          <div class="stat">
+            <span>Total Employees</span>
+            <strong id="hrTotalEmployees">0</strong>
+          </div>
 
-      <!-- HR EMPLOYEES -->
-      <div id="hrEmployeesTab" class="tab-content">
+          <div class="stat">
+            <span>Hostel IN</span>
+            <strong id="hrHostelIn">0</strong>
+          </div>
 
-        <div class="card">
+          <div class="stat">
+            <span>Hostel OUT</span>
+            <strong id="hrHostelOut">0</strong>
+          </div>
 
-          <h2>Employees</h2>
+          <div class="stat">
+            <span>Cab Boarded</span>
+            <strong id="hrCabBoarded">0</strong>
+          </div>
 
-          <input
-            id="hrEmployeeSearch"
-            type="search"
-            placeholder="Search employee..."
-            oninput="filterHREmployees()">
+          <div class="stat">
+            <span>Leave</span>
+            <strong id="hrLeaveCount">0</strong>
+          </div>
 
-          <div id="hrEmployeesList" class="status">
-            Employee list will load here.
+          <div class="stat">
+            <span>Vacate Pending</span>
+            <strong id="hrVacatePending">0</strong>
           </div>
 
         </div>
@@ -929,83 +1201,114 @@
 
 
       <!-- HR CAB -->
-      <div id="hrCabTab" class="tab-content">
+      <div id="hrCab" class="tab-content">
 
-        <div class="card">
+        <div class="section-title">
+          Cab Management
+        </div>
 
-          <h2>Cab Scanner</h2>
+        <div class="employee-box">
 
-          <p class="muted">
-            Scan employee QR and add the employee to the selected cab.
-          </p>
+          <strong>5 Cabs • 20 Seats Each</strong>
 
-          <label for="hrCabSelect">
-            Cab
-          </label>
+          <span>
+            QR scan → Employee verification → Cab assignment →
+            Date & time → Passenger count
+          </span>
 
-          <select id="hrCabSelect">
-            <option value="">Select cab</option>
-            <option value="CAB-1">CAB-1</option>
-            <option value="CAB-2">CAB-2</option>
-            <option value="CAB-3">CAB-3</option>
-            <option value="CAB-4">CAB-4</option>
-            <option value="CAB-5">CAB-5</option>
-          </select>
+        </div>
 
-          <label for="cabEmployeeQR">
-            Employee QR Data
-          </label>
+        <div id="hrCabDetails">
+          Cab management module will be connected through app.js.
+        </div>
 
-          <textarea
-            id="cabEmployeeQR"
-            placeholder="Scanner result"></textarea>
+      </div>
 
-          <button
-            type="button"
-            class="primary"
-            onclick="scanCabEmployee()">
-            Add Employee to Cab
-          </button>
 
-          <div id="cabScanStatus" class="status hidden"></div>
+      <!-- HR EMPLOYEES -->
+      <div id="hrEmployees" class="tab-content">
 
+        <div class="section-title">
+          Employee Management
+        </div>
+
+        <input
+          id="hrEmployeeSearch"
+          type="search"
+          placeholder="Search employee..."
+          oninput="filterHREmployees()"
+          style="
+            width:100%;
+            height:46px;
+            border:1px solid #d5e4dc;
+            border-radius:13px;
+            padding:0 13px;
+            margin-bottom:13px;
+            outline:none;
+          ">
+
+        <div id="hrEmployeeList">
+          Employee records will appear here.
         </div>
 
       </div>
 
 
       <!-- HR ROOMS -->
-      <div id="hrRoomsTab" class="tab-content">
+      <div id="hrRooms" class="tab-content">
 
-        <div class="card">
+        <div class="section-title">
+          Room Management
+        </div>
 
-          <h2>Room Management</h2>
+        <div class="dashboard-grid">
 
-          <div id="hrRoomsList" class="status">
-            Room information will load here.
+          <div class="stat">
+            <span>Total Rooms</span>
+            <strong id="hrTotalRooms">24</strong>
           </div>
 
-          <button
-            type="button"
-            class="primary"
-            onclick="loadDashboard()">
-            Refresh
-          </button>
+          <div class="stat">
+            <span>Capacity / Room</span>
+            <strong>8</strong>
+          </div>
 
+          <div class="stat">
+            <span>Occupied Beds</span>
+            <strong id="hrOccupiedBeds">0</strong>
+          </div>
+
+          <div class="stat">
+            <span>Available Beds</span>
+            <strong id="hrAvailableBeds">0</strong>
+          </div>
+
+        </div>
+
+        <div id="hrRoomList" style="margin-top:15px;">
+          Room monitoring will appear here.
         </div>
 
       </div>
 
 
       <!-- HR LEAVE -->
-      <div id="hrLeaveTab" class="tab-content">
+      <div id="hrLeave" class="tab-content">
 
-        <div class="card">
+        <div class="section-title">
+          Leave & Approvals
+        </div>
 
-          <h2>Leave Approval</h2>
+        <div id="hrLeaveList">
 
-          <div id="hrLeaveList" class="status">
-            Pending leave requests will appear here.
+          <div class="employee-box">
+
+            <strong>Pending Leave Requests</strong>
+
+            <span>
+              HR approval workflow will be connected through the secure API.
+            </span>
+
           </div>
 
         </div>
@@ -1013,138 +1316,225 @@
       </div>
 
     </div>
+
   </section>
 
+</div>
 
-  <script>
-    /*
-      ============================================================
-      TEXMO HOSTEL HUB
-      Navigation layer
-      ============================================================
 
-      IMPORTANT:
-      Portal navigation does NOT depend on app.js.
+<script>
+  /*
+   * ============================================================
+   * TEXMO HOSTEL HUB 2.0
+   * FRONTEND FOUNDATION
+   * ============================================================
+   *
+   * IMPORTANT:
+   * - No real Master Key is stored here.
+   * - HR Master Key will be checked by worker.js.
+   * - app.js will be connected after this HTML foundation.
+   *
+   * Planned backend:
+   * POST /api/hr/register
+   * POST /api/hr/login
+   *
+   * Future security:
+   * - Password hashing
+   * - HR session/token
+   * - Server-side authorization
+   * - HR-only approval APIs
+   * - Audit logs
+   * ============================================================
+   */
 
-      app.js is loaded after this navigation layer.
-      Existing backend functions such as employeeLogin(),
-      registerEmployee(), hrLogin(), loadEmployee(),
-      loadDashboard(), logout() remain available.
-    */
 
-    function openPortal(screenId) {
-      const screens = document.querySelectorAll(".screen");
+  function showScreen(screenId) {
 
-      screens.forEach(function(screen) {
-        screen.classList.add("hidden");
-      });
+    const screens = document.querySelectorAll(".screen");
 
-      const target = document.getElementById(screenId);
+    screens.forEach(screen => {
+      screen.classList.remove("active");
+    });
 
-      if (!target) {
-        console.error("TEXMO: Screen not found:", screenId);
-        return;
-      }
+    const target = document.getElementById(screenId);
 
-      target.classList.remove("hidden");
-
+    if (target) {
+      target.classList.add("active");
       window.scrollTo({
         top: 0,
         behavior: "smooth"
       });
     }
 
+  }
+
+
+  function employeeTab(tabId) {
+
+    const contents =
+      document.querySelectorAll("#employeePortal .tab-content");
+
+    const tabs =
+      document.querySelectorAll("#employeePortal .tab");
+
+    contents.forEach(item => {
+      item.classList.remove("active");
+    });
+
+    tabs.forEach(item => {
+      item.classList.remove("active");
+    });
+
+    const target =
+      document.getElementById(tabId);
+
+    if (target) {
+      target.classList.add("active");
+    }
+
+    const buttons =
+      document.querySelectorAll("#employeePortal .tab");
+
+    buttons.forEach(button => {
+
+      const onclickText =
+        button.getAttribute("onclick") || "";
+
+      if (onclickText.includes("'" + tabId + "'")) {
+        button.classList.add("active");
+      }
+
+    });
+
+  }
+
+
+  function hrTab(tabId) {
+
+    const contents =
+      document.querySelectorAll("#hrPortal .tab-content");
+
+    const tabs =
+      document.querySelectorAll("#hrPortal .tab");
+
+    contents.forEach(item => {
+      item.classList.remove("active");
+    });
+
+    tabs.forEach(item => {
+      item.classList.remove("active");
+    });
+
+    const target =
+      document.getElementById(tabId);
+
+    if (target) {
+      target.classList.add("active");
+    }
+
+    const buttons =
+      document.querySelectorAll("#hrPortal .tab");
+
+    buttons.forEach(button => {
+
+      const onclickText =
+        button.getAttribute("onclick") || "";
+
+      if (onclickText.includes("'" + tabId + "'")) {
+        button.classList.add("active");
+      }
+
+    });
+
+  }
+
+
+  function showMessage(id, message, type) {
+
+    const box = document.getElementById(id);
+
+    if (!box) return;
+
+    box.textContent = message;
+
+    box.className = "message show " + type;
+
+  }
+
+
+  /*
+   * Temporary frontend placeholders.
+   *
+   * These will be replaced by the real app.js logic.
+   */
+
+  function employeeLogin() {
+
+    showMessage(
+      "employeeLoginMessage",
+      "Employee login will be connected to the secure Worker API.",
+      "success"
+    );
+
+  }
+
+
+  function hrLogin() {
+
+    showMessage(
+      "hrLoginMessage",
+      "HR login will be connected to the secure Worker API.",
+      "success"
+    );
+
+  }
+
+
+  function registerEmployee() {
+
+    showMessage(
+      "employeeRegisterMessage",
+      "Employee registration will be connected to D1 through the Worker.",
+      "success"
+    );
+
+  }
+
+
+  function registerHR() {
+
+    const masterKey =
+      document.getElementById("hrRegMasterKey").value.trim();
+
+    if (!masterKey) {
+
+      showMessage(
+        "hrRegisterMessage",
+        "Final Master Key is required.",
+        "error"
+      );
+
+      return;
+    }
+
+    showMessage(
+      "hrRegisterMessage",
+      "HR registration form is ready. The Master Key will be verified securely by the Worker.",
+      "success"
+    );
+
+  }
+
+
+  function filterHREmployees() {
+
     /*
-      Keep compatibility with existing app.js.
-      If app.js has its own showScreen(), that function can still
-      be used by the existing code.
-    */
-    window.openPortal = openPortal;
+     * Real employee filtering will be implemented in app.js.
+     */
 
-    window.showScreen = function(screenId) {
-      openPortal(screenId);
-    };
+  }
 
-    function employeeTab(id, button) {
-      document
-        .querySelectorAll("#employeePortal .tab-content")
-        .forEach(function(tab) {
-          tab.classList.remove("active");
-        });
-
-      document
-        .querySelectorAll("#employeePortal .tab-button")
-        .forEach(function(btn) {
-          btn.classList.remove("active");
-        });
-
-      const target = document.getElementById(id);
-
-      if (target) {
-        target.classList.add("active");
-      }
-
-      if (button) {
-        button.classList.add("active");
-      }
-    }
-
-    function hrTab(id, button) {
-      document
-        .querySelectorAll("#hrPortal .tab-content")
-        .forEach(function(tab) {
-          tab.classList.remove("active");
-        });
-
-      document
-        .querySelectorAll("#hrPortal .tab-button")
-        .forEach(function(btn) {
-          btn.classList.remove("active");
-        });
-
-      const target = document.getElementById(id);
-
-      if (target) {
-        target.classList.add("active");
-      }
-
-      if (button) {
-        button.classList.add("active");
-      }
-    }
-
-    function filterHREmployees() {
-      const input = document.getElementById("hrEmployeeSearch");
-
-      if (!input) {
-        return;
-      }
-
-      const value = input.value.trim().toLowerCase();
-
-      document
-        .querySelectorAll("#hrEmployeesList .employee-row")
-        .forEach(function(row) {
-          const text = row.textContent.toLowerCase();
-
-          row.style.display =
-            !value || text.includes(value)
-              ? ""
-              : "none";
-        });
-    }
-
-    window.employeeTab = employeeTab;
-    window.hrTab = hrTab;
-    window.filterHREmployees = filterHREmployees;
-  </script>
-
-
-  <!--
-    IMPORTANT:
-    Keep app.js AFTER the navigation layer.
-  -->
-  <script src="./app.js"></script>
+</script>
 
 </body>
 </html>
