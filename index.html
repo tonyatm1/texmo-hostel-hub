@@ -352,13 +352,13 @@
       Staff Login
     </div>
 
-    <form class="form" onsubmit="return staffLogin(event)">
+    <form id="staffLoginForm" class="form">
 
       <div class="field">
         <label>Staff ID</label>
         <input
           type="text"
-          id="loginStaffId"
+          id="staffLoginId"
           placeholder="Enter Staff ID"
           required
         >
@@ -368,7 +368,7 @@
         <label>Password</label>
         <input
           type="password"
-          id="loginStaffPassword"
+          id="staffLoginPassword"
           placeholder="Enter password"
           required
         >
@@ -588,7 +588,9 @@
   }
 
 
+  // =====================================================
   // STAFF REGISTRATION
+  // =====================================================
 
   document
     .getElementById("staffRegisterForm")
@@ -675,19 +677,11 @@
     });
 
 
-  // TEMPORARY LOGIN FUNCTIONS
-  // Backend login will be connected in the next step.
-
-  function staffLogin(event) {
-
-    event.preventDefault();
-
-    alert(
-      "Staff Login backend will be connected in the next step."
-    );
-
-    return false;
-  }
+  // =====================================================
+  // TEMPORARY EMPLOYEE / INTERN FUNCTIONS
+  // =====================================================
+  // Staff Login is NOT defined here.
+  // It is handled by app.js.
 
 
   function employeeLogin(event) {
