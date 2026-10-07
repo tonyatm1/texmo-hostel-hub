@@ -1,4 +1,4 @@
-const VERSION = "TEXMO-HOSTEL-HUB-3.1";
+const VERSION = "TEXMO-HOSTEL-HUB-3.2";
 
 export default {
   async fetch(request, env) {
@@ -22,7 +22,10 @@ export default {
       }
 
       // DATABASE TEST
-      if (url.pathname === "/api/db-test" && request.method === "GET") {
+      if (
+        url.pathname === "/api/db-test" &&
+        request.method === "GET"
+      ) {
         if (!env.DB) {
           return jsonResponse({
             success: false,
@@ -38,6 +41,21 @@ export default {
           success: true,
           message: "D1 database connected successfully",
           result
+        });
+      }
+
+      // MASTER KEY ENVIRONMENT TEST
+      // Does NOT reveal the actual Master Key.
+      if (
+        url.pathname === "/api/master-key-test" &&
+        request.method === "GET"
+      ) {
+        return jsonResponse({
+          success: true,
+          configured: !!env.TEXMO_MASTER_KEY,
+          length: env.TEXMO_MASTER_KEY
+            ? env.TEXMO_MASTER_KEY.length
+            : 0
         });
       }
 
@@ -172,4 +190,4 @@ function jsonResponse(data, status = 200) {
       }
     }
   );
-        }
+}
