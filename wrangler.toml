@@ -4,8 +4,8 @@ compatibility_date = "2026-09-30"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "texmo-hostel-db"
-database_id = "9fa2fbaa-3538-46c5-9b88-fb399283cb5c"
+database_name = "texmo-hostel-hub-v2"
+database_id = "94fa1cc7-2633-4cea-8a8d-3e8e2e0f9856"
 
 [assets]
 directory = "."
