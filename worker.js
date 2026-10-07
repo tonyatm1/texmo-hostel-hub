@@ -1,4 +1,4 @@
-const VERSION = "TEXMO-HOSTEL-HUB-3.2";
+const VERSION = "TEXMO-HOSTEL-HUB-3.3";
 
 export default {
   async fetch(request, env) {
@@ -44,8 +44,7 @@ export default {
         });
       }
 
-      // MASTER KEY ENVIRONMENT TEST
-      // Does NOT reveal the actual Master Key.
+      // MASTER KEY TEST
       if (
         url.pathname === "/api/master-key-test" &&
         request.method === "GET"
@@ -65,6 +64,14 @@ export default {
         request.method === "POST"
       ) {
         return await staffRegister(request, env);
+      }
+
+      // STAFF LOGIN
+      if (
+        url.pathname === "/api/staff/login" &&
+        request.method === "POST"
+      ) {
+        return await staffLogin(request, env);
       }
 
       return jsonResponse({
@@ -163,6 +170,61 @@ async function staffRegister(request, env) {
 
     throw error;
   }
+}
+
+
+// STAFF LOGIN
+async function staffLogin(request, env) {
+  const body = await request.json();
+
+  const {
+    staff_id,
+    password
+  } = body;
+
+  if (!staff_id || !password) {
+    return jsonResponse({
+      success: false,
+      message: "Staff ID and password are required"
+    }, 400);
+  }
+
+  const staff = await env.DB.prepare(`
+    SELECT
+      id,
+      name,
+      staff_id,
+      mobile,
+      role,
+      status
+    FROM staff
+    WHERE staff_id = ?
+      AND password = ?
+      AND status = 'ACTIVE'
+    LIMIT 1
+  `)
+    .bind(staff_id, password)
+    .first();
+
+  if (!staff) {
+    return jsonResponse({
+      success: false,
+      message: "Invalid Staff ID or password"
+    }, 401);
+  }
+
+  return jsonResponse({
+    success: true,
+    message: "Staff login successful",
+    staff: {
+      id: staff.id,
+      name: staff.name,
+      staff_id: staff.staff_id,
+      mobile: staff.mobile,
+      role: staff.role,
+      status: staff.status
+    }
+  });
 }
 
 
