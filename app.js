@@ -53,6 +53,7 @@ function setupStaffLogin() {
     document.getElementById("staffLoginForm");
 
   if (!form) {
+    console.error("staffLoginForm not found.");
     return;
   }
 
@@ -69,16 +70,6 @@ function setupStaffLogin() {
 
       const passwordInput =
         document.getElementById("staffLoginPassword");
-
-
-      if (!staffIdInput || !passwordInput) {
-
-        alert(
-          "Staff login fields not found."
-        );
-
-        return;
-      }
 
 
       const staff_id =
@@ -100,15 +91,17 @@ function setupStaffLogin() {
 
       try {
 
-        // =================================================
-        // LOGIN API
-        // =================================================
-
         const result =
           await staffLogin({
             staff_id,
             password
           });
+
+
+        console.log(
+          "LOGIN RESULT:",
+          result
+        );
 
 
         // =================================================
@@ -127,7 +120,7 @@ function setupStaffLogin() {
 
 
         // =================================================
-        // SAVE STAFF SESSION
+        // SAVE SESSION
         // =================================================
 
         localStorage.setItem(
@@ -136,102 +129,136 @@ function setupStaffLogin() {
         );
 
 
-        console.log(
-          "Staff login successful:",
-          result.staff
-        );
+        // =================================================
+        // STAFF DETAILS
+        // =================================================
+
+        const staff =
+          result.staff || {};
+
+
+        const name =
+          staff.name || "Staff";
+
+        const role =
+          staff.role || "STAFF";
+
+        const id =
+          staff.staff_id || staff_id;
 
 
         // =================================================
-        // LOAD STAFF DETAILS INTO PORTAL
+        // PUT STAFF DETAILS INTO PORTAL
         // =================================================
 
-        const portalStaffName =
+        const nameElement =
           document.getElementById(
             "portalStaffName"
           );
 
-        const portalStaffRole =
+        const roleElement =
           document.getElementById(
             "portalStaffRole"
           );
 
-        const portalStaffId =
+        const idElement =
           document.getElementById(
             "portalStaffId"
           );
 
 
-        const portalInfoName =
+        const infoNameElement =
           document.getElementById(
             "portalInfoName"
           );
 
-        const portalInfoRole =
+        const infoRoleElement =
           document.getElementById(
             "portalInfoRole"
           );
 
-        const portalInfoStaffId =
+        const infoIdElement =
           document.getElementById(
             "portalInfoStaffId"
           );
 
 
-        if (portalStaffName) {
-
-          portalStaffName.textContent =
-            result.staff.name || "Staff";
-
+        if (nameElement) {
+          nameElement.textContent = name;
         }
 
 
-        if (portalStaffRole) {
-
-          portalStaffRole.textContent =
-            result.staff.role || "STAFF";
-
+        if (roleElement) {
+          roleElement.textContent = role;
         }
 
 
-        if (portalStaffId) {
-
-          portalStaffId.textContent =
-            result.staff.staff_id || "-";
-
+        if (idElement) {
+          idElement.textContent = id;
         }
 
 
-        if (portalInfoName) {
-
-          portalInfoName.textContent =
-            result.staff.name || "-";
-
+        if (infoNameElement) {
+          infoNameElement.textContent = name;
         }
 
 
-        if (portalInfoRole) {
-
-          portalInfoRole.textContent =
-            result.staff.role || "-";
-
+        if (infoRoleElement) {
+          infoRoleElement.textContent = role;
         }
 
 
-        if (portalInfoStaffId) {
-
-          portalInfoStaffId.textContent =
-            result.staff.staff_id || "-";
-
+        if (infoIdElement) {
+          infoIdElement.textContent = id;
         }
 
 
         // =================================================
-        // GO TO STAFF PORTAL
+        // OPEN STAFF PORTAL
         // =================================================
 
-        showScreen("staffPortalScreen");
+        const portal =
+          document.getElementById(
+            "staffPortalScreen"
+          );
 
+
+        if (!portal) {
+
+          alert(
+            "Staff Portal section not found in Index.html."
+          );
+
+          console.error(
+            "staffPortalScreen NOT FOUND"
+          );
+
+          return;
+        }
+
+
+        // Hide every screen
+
+        document
+          .querySelectorAll(".screen")
+          .forEach(function (screen) {
+
+            screen.classList.remove("active");
+
+          });
+
+
+        // Show portal
+
+        portal.classList.add("active");
+
+
+        window.scrollTo(0, 0);
+
+
+        console.log(
+          "STAFF PORTAL OPENED SUCCESSFULLY"
+        );
 
       } catch (error) {
 
@@ -259,12 +286,11 @@ function setupStaffLogin() {
 
 document.addEventListener(
   "DOMContentLoaded",
-  () => {
+  function () {
 
     console.log(
       "TEXMO Hostel Hub app.js loaded successfully."
     );
-
 
     setupStaffLogin();
 
