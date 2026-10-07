@@ -88,22 +88,26 @@ function setupStaffLogin() {
         return;
       }
 
-      // Save logged-in staff session
+      // =====================================================
+      // SAVE STAFF SESSION
+      // =====================================================
+
       localStorage.setItem(
         "texmo_staff_session",
         JSON.stringify(result.staff)
       );
 
-      alert(
-        `Welcome ${result.staff.name}!\nRole: ${result.staff.role}`
-      );
-
-      // Temporary success destination
-      // Staff dashboard will be connected next.
       console.log(
         "Staff login successful:",
         result.staff
       );
+
+
+      // =====================================================
+      // GO TO STAFF PORTAL
+      // =====================================================
+
+      window.location.href = "/staff.html";
 
     } catch (error) {
       console.error("Staff login error:", error);
@@ -123,10 +127,12 @@ function setupStaffLogin() {
 document.addEventListener(
   "DOMContentLoaded",
   () => {
+
     console.log(
       "TEXMO Hostel Hub app.js loaded successfully."
     );
 
     setupStaffLogin();
+
   }
 );
