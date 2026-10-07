@@ -11,7 +11,6 @@ export default {
     }
 
     try {
-      // Health check
       if (url.pathname === "/" && request.method === "GET") {
         return jsonResponse({
           success: true,
@@ -21,7 +20,6 @@ export default {
         });
       }
 
-      // Database test
       if (url.pathname === "/api/db-test" && request.method === "GET") {
         if (!env.DB) {
           return jsonResponse(
