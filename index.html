@@ -178,6 +178,188 @@
       color: #87958d;
     }
 
+
+    /* =====================================================
+       STAFF PORTAL DESIGN
+    ===================================================== */
+
+    .portal-top {
+      background: linear-gradient(135deg, #126b3a, #168447);
+      color: white;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 20px rgba(22, 132, 71, 0.18);
+    }
+
+    .portal-top-label {
+      font-size: 11px;
+      opacity: 0.8;
+      letter-spacing: 1.5px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .portal-top h2 {
+      font-size: 23px;
+      margin-bottom: 5px;
+    }
+
+    .portal-top p {
+      font-size: 12px;
+      opacity: 0.85;
+    }
+
+    .portal-online {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 13px;
+      background: rgba(255,255,255,0.16);
+      padding: 7px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .online-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #b9ffd5;
+    }
+
+    .staff-card {
+      background: white;
+      border: 1px solid #dcebe2;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    .staff-card-title {
+      font-size: 12px;
+      color: #718078;
+      margin-bottom: 7px;
+    }
+
+    .staff-card-name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #173b2a;
+      margin-bottom: 5px;
+    }
+
+    .staff-card-role {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 20px;
+      background: #e8f7ee;
+      color: #126b3a;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .staff-card-id {
+      margin-top: 9px;
+      font-size: 12px;
+      color: #718078;
+    }
+
+    .portal-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 11px;
+    }
+
+    .portal-heading strong {
+      font-size: 17px;
+      color: #145f37;
+    }
+
+    .portal-heading span {
+      font-size: 11px;
+      color: #87958d;
+    }
+
+    .portal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 11px;
+    }
+
+    .portal-card {
+      background: white;
+      border: 1px solid #dcebe2;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: left;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    .portal-card-icon {
+      font-size: 23px;
+      margin-bottom: 9px;
+    }
+
+    .portal-card-title {
+      font-size: 14px;
+      color: #173b2a;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .portal-card-text {
+      font-size: 10px;
+      color: #7a8880;
+      font-weight: normal;
+      display: block;
+      line-height: 1.4;
+    }
+
+    .portal-account {
+      margin-top: 20px;
+      background: #f8fcfa;
+      border: 1px solid #dcebe2;
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .portal-account-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #145f37;
+      margin-bottom: 12px;
+    }
+
+    .account-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 0;
+      border-top: 1px solid #e5eee9;
+      font-size: 12px;
+    }
+
+    .account-row span {
+      color: #77847d;
+    }
+
+    .account-row strong {
+      color: #173b2a;
+      text-align: right;
+    }
+
+    .portal-logout {
+      margin-top: 14px;
+      background: #fff0f0;
+      color: #b42318;
+      border: 1px solid #ffd7d4;
+    }
+
+
     @media (min-width: 600px) {
       body {
         padding: 20px;
@@ -379,6 +561,203 @@
       </button>
 
     </form>
+
+  </section>
+
+
+  <!-- STAFF PORTAL -->
+  <section id="staffPortalScreen" class="screen">
+
+    <div class="portal-top">
+
+      <div class="portal-top-label">
+        TEXMO HOSTEL HUB
+      </div>
+
+      <h2>Staff Portal</h2>
+
+      <p>
+        Hostel Management System
+      </p>
+
+      <div class="portal-online">
+        <span class="online-dot"></span>
+        Portal Online
+      </div>
+
+    </div>
+
+
+    <!-- STAFF PROFILE -->
+
+    <div class="staff-card">
+
+      <div class="staff-card-title">
+        Welcome back
+      </div>
+
+      <div
+        id="portalStaffName"
+        class="staff-card-name"
+      >
+        Staff
+      </div>
+
+      <div
+        id="portalStaffRole"
+        class="staff-card-role"
+      >
+        STAFF
+      </div>
+
+      <div class="staff-card-id">
+        Staff ID:
+        <span id="portalStaffId">-</span>
+      </div>
+
+    </div>
+
+
+    <!-- DASHBOARD -->
+
+    <div class="portal-heading">
+      <strong>Dashboard</strong>
+      <span>Quick Access</span>
+    </div>
+
+
+    <div class="portal-grid">
+
+      <button
+        class="portal-card"
+        onclick="portalModule('Employee Management')"
+      >
+        <div class="portal-card-icon">👥</div>
+
+        <span class="portal-card-title">
+          Employees
+        </span>
+
+        <span class="portal-card-text">
+          Employee management
+        </span>
+      </button>
+
+
+      <button
+        class="portal-card"
+        onclick="portalModule('Room Management')"
+      >
+        <div class="portal-card-icon">🏠</div>
+
+        <span class="portal-card-title">
+          Rooms
+        </span>
+
+        <span class="portal-card-text">
+          Room management
+        </span>
+      </button>
+
+
+      <button
+        class="portal-card"
+        onclick="portalModule('Cab Management')"
+      >
+        <div class="portal-card-icon">🚌</div>
+
+        <span class="portal-card-title">
+          Cab
+        </span>
+
+        <span class="portal-card-text">
+          Cab management
+        </span>
+      </button>
+
+
+      <button
+        class="portal-card"
+        onclick="portalModule('Attendance')"
+      >
+        <div class="portal-card-icon">🕘</div>
+
+        <span class="portal-card-title">
+          Attendance
+        </span>
+
+        <span class="portal-card-text">
+          Attendance management
+        </span>
+      </button>
+
+
+      <button
+        class="portal-card"
+        onclick="portalModule('Leave Management')"
+      >
+        <div class="portal-card-icon">📋</div>
+
+        <span class="portal-card-title">
+          Leave
+        </span>
+
+        <span class="portal-card-text">
+          Leave management
+        </span>
+      </button>
+
+
+      <button
+        class="portal-card"
+        onclick="portalModule('Reports')"
+      >
+        <div class="portal-card-icon">📊</div>
+
+        <span class="portal-card-title">
+          Reports
+        </span>
+
+        <span class="portal-card-text">
+          View reports
+        </span>
+      </button>
+
+    </div>
+
+
+    <!-- ACCOUNT INFORMATION -->
+
+    <div class="portal-account">
+
+      <div class="portal-account-title">
+        Account Information
+      </div>
+
+      <div class="account-row">
+        <span>Staff ID</span>
+        <strong id="portalInfoStaffId">-</strong>
+      </div>
+
+      <div class="account-row">
+        <span>Name</span>
+        <strong id="portalInfoName">-</strong>
+      </div>
+
+      <div class="account-row">
+        <span>Role</span>
+        <strong id="portalInfoRole">-</strong>
+      </div>
+
+    </div>
+
+
+    <button
+      class="portal-logout"
+      onclick="staffLogout()"
+    >
+      Logout
+    </button>
 
   </section>
 
@@ -680,9 +1059,6 @@
   // =====================================================
   // TEMPORARY EMPLOYEE / INTERN FUNCTIONS
   // =====================================================
-  // Staff Login is NOT defined here.
-  // It is handled by app.js.
-
 
   function employeeLogin(event) {
 
@@ -729,6 +1105,31 @@
     );
 
     return false;
+  }
+
+
+  // =====================================================
+  // STAFF PORTAL
+  // =====================================================
+
+  function portalModule(moduleName) {
+
+    alert(
+      moduleName +
+      " module will be connected in the next step."
+    );
+
+  }
+
+
+  function staffLogout() {
+
+    localStorage.removeItem(
+      "texmo_staff_session"
+    );
+
+    showScreen("homeScreen");
+
   }
 
 </script>
