@@ -6,6 +6,7 @@ const API_BASE = "";
 // =========================================================
 
 async function staffRegister(data) {
+
   const response = await fetch(
     `${API_BASE}/api/staff/register`,
     {
@@ -26,6 +27,7 @@ async function staffRegister(data) {
 // =========================================================
 
 async function staffLogin(data) {
+
   const response = await fetch(
     `${API_BASE}/api/staff/login`,
     {
@@ -46,77 +48,208 @@ async function staffLogin(data) {
 // =========================================================
 
 function setupStaffLogin() {
-  const form = document.getElementById("staffLoginForm");
+
+  const form =
+    document.getElementById("staffLoginForm");
 
   if (!form) {
     return;
   }
 
-  form.addEventListener("submit", async function (event) {
-    event.preventDefault();
 
-    const staffIdInput =
-      document.getElementById("staffLoginId");
+  form.addEventListener(
+    "submit",
+    async function (event) {
 
-    const passwordInput =
-      document.getElementById("staffLoginPassword");
+      event.preventDefault();
 
-    if (!staffIdInput || !passwordInput) {
-      alert("Staff login fields not found.");
-      return;
-    }
 
-    const staff_id =
-      staffIdInput.value.trim();
+      const staffIdInput =
+        document.getElementById("staffLoginId");
 
-    const password =
-      passwordInput.value;
+      const passwordInput =
+        document.getElementById("staffLoginPassword");
 
-    if (!staff_id || !password) {
-      alert("Please enter Staff ID and Password.");
-      return;
-    }
 
-    try {
-      const result = await staffLogin({
-        staff_id,
-        password
-      });
+      if (!staffIdInput || !passwordInput) {
 
-      if (!result.success) {
-        alert(result.message || "Staff login failed.");
+        alert(
+          "Staff login fields not found."
+        );
+
         return;
       }
 
-      // =====================================================
-      // SAVE STAFF SESSION
-      // =====================================================
 
-      localStorage.setItem(
-        "texmo_staff_session",
-        JSON.stringify(result.staff)
-      );
+      const staff_id =
+        staffIdInput.value.trim();
 
-      console.log(
-        "Staff login successful:",
-        result.staff
-      );
+      const password =
+        passwordInput.value;
 
 
-      // =====================================================
-      // GO TO STAFF PORTAL
-      // =====================================================
+      if (!staff_id || !password) {
 
-      window.location.href = "/staff.html";
+        alert(
+          "Please enter Staff ID and Password."
+        );
 
-    } catch (error) {
-      console.error("Staff login error:", error);
+        return;
+      }
 
-      alert(
-        "Unable to connect to TEXMO server. Please try again."
-      );
+
+      try {
+
+        // =================================================
+        // LOGIN API
+        // =================================================
+
+        const result =
+          await staffLogin({
+            staff_id,
+            password
+          });
+
+
+        // =================================================
+        // LOGIN FAILED
+        // =================================================
+
+        if (!result.success) {
+
+          alert(
+            result.message ||
+            "Staff login failed."
+          );
+
+          return;
+        }
+
+
+        // =================================================
+        // SAVE STAFF SESSION
+        // =================================================
+
+        localStorage.setItem(
+          "texmo_staff_session",
+          JSON.stringify(result.staff)
+        );
+
+
+        console.log(
+          "Staff login successful:",
+          result.staff
+        );
+
+
+        // =================================================
+        // LOAD STAFF DETAILS INTO PORTAL
+        // =================================================
+
+        const portalStaffName =
+          document.getElementById(
+            "portalStaffName"
+          );
+
+        const portalStaffRole =
+          document.getElementById(
+            "portalStaffRole"
+          );
+
+        const portalStaffId =
+          document.getElementById(
+            "portalStaffId"
+          );
+
+
+        const portalInfoName =
+          document.getElementById(
+            "portalInfoName"
+          );
+
+        const portalInfoRole =
+          document.getElementById(
+            "portalInfoRole"
+          );
+
+        const portalInfoStaffId =
+          document.getElementById(
+            "portalInfoStaffId"
+          );
+
+
+        if (portalStaffName) {
+
+          portalStaffName.textContent =
+            result.staff.name || "Staff";
+
+        }
+
+
+        if (portalStaffRole) {
+
+          portalStaffRole.textContent =
+            result.staff.role || "STAFF";
+
+        }
+
+
+        if (portalStaffId) {
+
+          portalStaffId.textContent =
+            result.staff.staff_id || "-";
+
+        }
+
+
+        if (portalInfoName) {
+
+          portalInfoName.textContent =
+            result.staff.name || "-";
+
+        }
+
+
+        if (portalInfoRole) {
+
+          portalInfoRole.textContent =
+            result.staff.role || "-";
+
+        }
+
+
+        if (portalInfoStaffId) {
+
+          portalInfoStaffId.textContent =
+            result.staff.staff_id || "-";
+
+        }
+
+
+        // =================================================
+        // GO TO STAFF PORTAL
+        // =================================================
+
+        showScreen("staffPortalScreen");
+
+
+      } catch (error) {
+
+        console.error(
+          "Staff login error:",
+          error
+        );
+
+
+        alert(
+          "Unable to connect to TEXMO server. Please try again."
+        );
+
+      }
+
     }
-  });
+  );
+
 }
 
 
@@ -131,6 +264,7 @@ document.addEventListener(
     console.log(
       "TEXMO Hostel Hub app.js loaded successfully."
     );
+
 
     setupStaffLogin();
 
