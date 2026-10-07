@@ -1,4 +1,4 @@
-const VERSION = "TEXMO-HOSTEL-HUB-3.0";
+const VERSION = "TEXMO-HOSTEL-HUB-3.1";
 
 export default {
   async fetch(request, env) {
@@ -11,6 +11,7 @@ export default {
     }
 
     try {
+      // HEALTH CHECK
       if (url.pathname === "/" && request.method === "GET") {
         return jsonResponse({
           success: true,
@@ -20,15 +21,13 @@ export default {
         });
       }
 
+      // DATABASE TEST
       if (url.pathname === "/api/db-test" && request.method === "GET") {
         if (!env.DB) {
-          return jsonResponse(
-            {
-              success: false,
-              message: "D1 database binding not found"
-            },
-            500
-          );
+          return jsonResponse({
+            success: false,
+            message: "D1 database binding not found"
+          }, 500);
         }
 
         const result = await env.DB
@@ -42,50 +41,53 @@ export default {
         });
       }
 
-      return jsonResponse(
-        {
-          success: false,
-          message: "API route not found"
-        },
-        404
-      );
+      // STAFF REGISTRATION
+      if (
+        url.pathname === "/api/staff/register" &&
+        request.method === "POST"
+      ) {
+        return await staffRegister(request, env);
+      }
+
+      return jsonResponse({
+        success: false,
+        message: "API route not found"
+      }, 404);
 
     } catch (error) {
-      return jsonResponse(
-        {
-          success: false,
-          message: "Server error",
-          error: error.message
-        },
-        500
-      );
+      return jsonResponse({
+        success: false,
+        message: "Server error",
+        error: error.message
+      }, 500);
     }
   }
 };
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
-}
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders()
-    }
-  });
-}
+// STAFF REGISTRATION
 async function staffRegister(request, env) {
   const body = await request.json();
 
-  const { name, staff_id, mobile, password, confirm_password, role, master_key } = body;
+  const {
+    name,
+    staff_id,
+    mobile,
+    password,
+    confirm_password,
+    role,
+    master_key
+  } = body;
 
-  if (!name || !staff_id || !mobile || !password || !confirm_password || !role || !master_key) {
+  if (
+    !name ||
+    !staff_id ||
+    !mobile ||
+    !password ||
+    !confirm_password ||
+    !role ||
+    !master_key
+  ) {
     return jsonResponse({
       success: false,
       message: "All fields are required"
@@ -114,15 +116,18 @@ async function staffRegister(request, env) {
   }
 
   try {
-    if (url.pathname === "/api/staff/register" && request.method === "POST") {
-  return await staffRegister(request, env);
-    }
     await env.DB.prepare(`
       INSERT INTO staff
       (name, staff_id, mobile, password, role)
       VALUES (?, ?, ?, ?, ?)
     `)
-      .bind(name, staff_id, mobile, password, role)
+      .bind(
+        name,
+        staff_id,
+        mobile,
+        password,
+        role
+      )
       .run();
 
     return jsonResponse({
@@ -141,3 +146,30 @@ async function staffRegister(request, env) {
     throw error;
   }
 }
+
+
+// CORS
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods":
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Authorization"
+  };
+}
+
+
+// JSON RESPONSE
+function jsonResponse(data, status = 200) {
+  return new Response(
+    JSON.stringify(data),
+    {
+      status,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders()
+      }
+    }
+  );
+        }
