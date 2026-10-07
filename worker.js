@@ -80,3 +80,64 @@ function jsonResponse(data, status = 200) {
     }
   });
 }
+async function staffRegister(request, env) {
+  const body = await request.json();
+
+  const { name, staff_id, mobile, password, confirm_password, role, master_key } = body;
+
+  if (!name || !staff_id || !mobile || !password || !confirm_password || !role || !master_key) {
+    return jsonResponse({
+      success: false,
+      message: "All fields are required"
+    }, 400);
+  }
+
+  if (password !== confirm_password) {
+    return jsonResponse({
+      success: false,
+      message: "Passwords do not match"
+    }, 400);
+  }
+
+  if (!["HR", "MANAGEMENT", "ADMIN"].includes(role)) {
+    return jsonResponse({
+      success: false,
+      message: "Invalid staff role"
+    }, 400);
+  }
+
+  if (master_key !== env.TEXMO_MASTER_KEY) {
+    return jsonResponse({
+      success: false,
+      message: "Invalid Master Key"
+    }, 401);
+  }
+
+  try {
+    if (url.pathname === "/api/staff/register" && request.method === "POST") {
+  return await staffRegister(request, env);
+    }
+    await env.DB.prepare(`
+      INSERT INTO staff
+      (name, staff_id, mobile, password, role)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+      .bind(name, staff_id, mobile, password, role)
+      .run();
+
+    return jsonResponse({
+      success: true,
+      message: "Staff registered successfully"
+    });
+
+  } catch (error) {
+    if (error.message.includes("UNIQUE")) {
+      return jsonResponse({
+        success: false,
+        message: "Staff ID already exists"
+      }, 409);
+    }
+
+    throw error;
+  }
+}
