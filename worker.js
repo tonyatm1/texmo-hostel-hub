@@ -1,786 +1,1046 @@
 
-const VERSION = "TEXMO-HOSTEL-HUB-4.1";
+const VERSION = "TEXMO-HOSTEL-HUB-5.0";
 
-const DEPARTMENTS = ["PDN", "PDN2", "PDN3", "MDN"];
-const SHIFTS = ["SHIFT 1", "SHIFT 2", "SHIFT 3"];
-const ROLES = ["HR", "MANAGEMENT", "ADMIN"];
-const PERSON_TYPES = ["EMPLOYEE", "INTERN"];
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
+
+const fail = (message, status = 400) =>
+  json({ success: false, message }, status);
+
+const nowIndia = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+
+  const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
+  const date = `${p.year}-${p.month}-${p.day}`;
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).format(new Date());
+
+  return { date, time };
+};
+
+const randomToken = () => crypto.randomUUID() + crypto.randomUUID();
+
+const encode64 = bytes => {
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+
+const decode64 = value => {
+  const s = value.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(s + "=".repeat((4 - s.length % 4) % 4));
+  return Uint8Array.from(binary, c => c.charCodeAt(0));
+};
+
+async function passwordHash(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits({
+    name: "PBKDF2",
+    salt,
+    iterations: 150000,
+    hash: "SHA-256"
+  }, key, 256);
+
+  return `pbkdf2$${encode64(salt)}$${encode64(new Uint8Array(bits))}`;
+}
+
+async function passwordVerify(password, stored) {
+  if (!stored) return false;
+
+  // Allow existing legacy passwords to log in once, then upgrade the hash.
+  if (!stored.startsWith("pbkdf2$")) {
+    return password === stored;
+  }
+
+  try {
+    const [, saltText, hashText] = stored.split("$");
+    const salt = decode64(saltText);
+    const expected = decode64(hashText);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const bits = new Uint8Array(await crypto.subtle.deriveBits({
+      name: "PBKDF2",
+      salt,
+      iterations: 150000,
+      hash: "SHA-256"
+    }, key, 256));
+
+    if (bits.length !== expected.length) return false;
+    let diff = 0;
+    for (let i = 0; i < bits.length; i++) diff |= bits[i] ^ expected[i];
+    return diff === 0;
+  } catch {
+    return false;
+  }
+}
+
+async function signingKey(env) {
+  const secret = env.TEXMO_MASTER_KEY;
+  if (!secret || secret.length < 16) {
+    throw new Error("TEXMO_MASTER_KEY secret is missing or too short.");
+  }
+
+  return crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"]
+  );
+}
+
+async function makeSession(env, claims) {
+  const payload = encode64(new TextEncoder().encode(JSON.stringify({
+    ...claims,
+    exp: Date.now() + 12 * 60 * 60 * 1000
+  })));
+
+  const key = await signingKey(env);
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(payload)
+  );
+
+  return `${payload}.${encode64(new Uint8Array(sig))}`;
+}
+
+async function readSession(request, env) {
+  const auth = request.headers.get("Authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token || !token.includes(".")) return null;
+
+  try {
+    const [payload, signature] = token.split(".");
+    const key = await signingKey(env);
+    const valid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      decode64(signature),
+      new TextEncoder().encode(payload)
+    );
+    if (!valid) return null;
+
+    const claims = JSON.parse(new TextDecoder().decode(decode64(payload)));
+    if (!claims.exp || claims.exp < Date.now()) return null;
+    return claims;
+  } catch {
+    return null;
+  }
+}
+
+async function bodyOf(request) {
+  try {
+    return await request.json();
+  } catch {
+    return {};
+  }
+}
+
+async function ensureRequestsTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS hr_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      person_type TEXT NOT NULL CHECK(person_type IN ('EMPLOYEE','INTERN')),
+      person_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      request_type TEXT NOT NULL,
+      from_date TEXT,
+      to_date TEXT,
+      remarks TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDING'
+        CHECK(status IN ('PENDING','APPROVED','REJECTED')),
+      hr_remarks TEXT,
+      reviewed_by TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+async function audit(db, actorType, actorId, action, targetType, targetId, details = "") {
+  try {
+    await db.prepare(`
+      INSERT INTO audit_logs
+      (actor_type, actor_id, action, target_type, target_id, details)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      actorType, actorId || null, action, targetType || null,
+      targetId == null ? null : String(targetId), details
+    ).run();
+  } catch {
+    // Audit logging must not break the main operation.
+  }
+}
+
+async function createPersonQr(db, personType, personId) {
+  const existing = await db.prepare(`
+    SELECT token FROM qr_tokens
+    WHERE qr_type='EMPLOYEE' AND person_type=? AND person_id=?
+      AND status='ACTIVE' LIMIT 1
+  `).bind(personType, personId).first();
+
+  if (existing) return existing.token;
+
+  const token = randomToken();
+  await db.prepare(`
+    INSERT INTO qr_tokens (token, qr_type, person_type, person_id, status)
+    VALUES (?, 'EMPLOYEE', ?, ?, 'ACTIVE')
+  `).bind(token, personType, personId).run();
+
+  return token;
+}
+
+async function getPerson(db, personType, personId) {
+  const table = personType === "INTERN" ? "interns" : "employees";
+  const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
+
+  return db.prepare(`
+    SELECT id, ${idColumn} AS person_id, name, department, designation,
+           mobile, shift, room, hostel_status, status
+    FROM ${table} WHERE ${idColumn}=? LIMIT 1
+  `).bind(personId).first();
+}
+
+function isManager(session) {
+  return session && session.kind === "STAFF" &&
+    ["HR", "MANAGEMENT", "ADMIN"].includes(session.role);
+}
+
+function isPerson(session) {
+  return session && session.kind === "PERSON" &&
+    ["EMPLOYEE", "INTERN"].includes(session.personType);
+}
+
+async function requireStaff(request, env) {
+  const session = await readSession(request, env);
+  return isManager(session) ? session : null;
+}
+
+async function requirePerson(request, env) {
+  const session = await readSession(request, env);
+  return isPerson(session) ? session : null;
+}
+
+async function handle(request, env) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method;
+
+  if (method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  const db = env.DB;
+  if (!db) return fail("D1 binding DB is missing.", 500);
+
+  try {
+    await ensureRequestsTable(db);
+
+    if (method === "GET" && path === "/") {
+      return json({
+        success: true,
+        app: "TEXMO Hostel Hub",
+        version: VERSION,
+        status: "online"
+      });
+    }
+
+    if (method === "GET" && path === "/api/db-test") {
+      const result = await db.prepare("SELECT 1 AS ok").first();
+      return json({ success: result?.ok === 1, version: VERSION });
+    }
+
+    // STAFF REGISTRATION
+    if (method === "POST" && path === "/api/staff/register") {
+      const b = await bodyOf(request);
+      const name = String(b.name || "").trim();
+      const staffId = String(b.staff_id || b.staffId || "").trim();
+      const mobile = String(b.mobile || "").trim();
+      const password = String(b.password || "");
+      const role = String(b.role || "").toUpperCase();
+      const masterKey = String(b.master_key || b.masterKey || "");
+
+      if (!name || !staffId || !mobile || password.length < 8) {
+        return fail("Name, Staff ID, mobile and password (minimum 8 characters) are required.");
+      }
+      if (!["HR", "MANAGEMENT", "ADMIN"].includes(role)) {
+        return fail("Invalid staff role.");
+      }
+      if (!env.TEXMO_MASTER_KEY || masterKey !== env.TEXMO_MASTER_KEY) {
+        return fail("Invalid master key.", 403);
+      }
+
+      const exists = await db.prepare(
+        "SELECT id FROM staff WHERE staff_id=? LIMIT 1"
+      ).bind(staffId).first();
+      if (exists) return fail("Staff ID already registered.", 409);
+
+      await db.prepare(`
+        INSERT INTO staff (name, staff_id, mobile, password, role, status)
+        VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+      `).bind(name, staffId, mobile, await passwordHash(password), role).run();
+
+      await audit(db, "STAFF", staffId, "REGISTER", "STAFF", staffId);
+      return json({ success: true, message: "Staff registered successfully." });
+    }
+
+    // STAFF LOGIN
+    if (method === "POST" && path === "/api/staff/login") {
+      const b = await bodyOf(request);
+      const staffId = String(b.staff_id || b.staffId || "").trim();
+      const password = String(b.password || "");
+
+      const staff = await db.prepare(`
+        SELECT staff_id, name, mobile, password, role, status
+        FROM staff WHERE staff_id=? LIMIT 1
+      `).bind(staffId).first();
+
+      if (!staff || staff.status !== "ACTIVE" ||
+          !(await passwordVerify(password, staff.password))) {
+        return fail("Incorrect Staff ID or password.", 401);
+      }
+
+      if (!staff.password.startsWith("pbkdf2$")) {
+        await db.prepare("UPDATE staff SET password=? WHERE staff_id=?")
+          .bind(await passwordHash(password), staffId).run();
+      }
+
+      const token = await makeSession(env, {
+        kind: "STAFF", staffId: staff.staff_id, name: staff.name, role: staff.role
+      });
+
+      return json({
+        success: true,
+        token,
+        user: {
+          name: staff.name, id: staff.staff_id, role: staff.role, kind: "STAFF"
+        }
+      });
+    }
+
+    // EMPLOYEE / INTERN SELF-REGISTRATION
+    if (method === "POST" && path === "/api/person/register") {
+      const b = await bodyOf(request);
+      const personType = String(b.person_type || b.personType || "EMPLOYEE").toUpperCase();
+      const personId = String(b.person_id || b.personId || b.employee_id || b.intern_id || "").trim();
+      const name = String(b.name || "").trim();
+      const mobile = String(b.mobile || "").trim();
+      const department = String(b.department || "").toUpperCase().trim();
+      const password = String(b.password || "");
+      const shift = String(b.shift || "").trim();
+
+      if (!["EMPLOYEE", "INTERN"].includes(personType)) return fail("Invalid account type.");
+      if (!personId || !name || !mobile || password.length < 8) {
+        return fail("ID, name, mobile and password (minimum 8 characters) are required.");
+      }
+      if (!["PDN", "PDN2", "PDN3", "MDN"].includes(department)) {
+        return fail("Select a valid department.");
+      }
+
+      const table = personType === "INTERN" ? "interns" : "employees";
+      const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
+      const exists = await db.prepare(
+        `SELECT id FROM ${table} WHERE ${idColumn}=? LIMIT 1`
+      ).bind(personId).first();
+
+      if (exists) return fail("This ID is already registered. Please log in or contact HR.", 409);
+
+      await db.prepare(`
+        INSERT INTO ${table}
+          (${idColumn}, name, department, mobile, password, shift, hostel_status, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'IN', 'ACTIVE')
+      `).bind(
+        personId, name, department, mobile, await passwordHash(password), shift || null
+      ).run();
+
+      const qr = await createPersonQr(db, personType, personId);
+      await audit(db, personType, personId, "SELF_REGISTER", personType, personId);
+
+      return json({
+        success: true,
+        message: "Registration successful. You can now log in.",
+        qr_token: qr
+      });
+    }
+
+    // EMPLOYEE / INTERN LOGIN
+    if (method === "POST" && path === "/api/person/login") {
+      const b = await bodyOf(request);
+      const personType = String(b.person_type || b.personType || "EMPLOYEE").toUpperCase();
+      const personId = String(b.person_id || b.personId || b.employee_id || b.intern_id || "").trim();
+      const password = String(b.password || "");
+
+      if (!["EMPLOYEE", "INTERN"].includes(personType)) return fail("Invalid account type.");
+
+      const table = personType === "INTERN" ? "interns" : "employees";
+      const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
+      const person = await db.prepare(`
+        SELECT ${idColumn} AS person_id, name, password, status
+        FROM ${table} WHERE ${idColumn}=? LIMIT 1
+      `).bind(personId).first();
+
+      if (!person || person.status !== "ACTIVE" ||
+          !(await passwordVerify(password, person.password))) {
+        return fail("Incorrect ID or password, or account inactive.", 401);
+      }
+
+      if (!person.password.startsWith("pbkdf2$")) {
+        await db.prepare(`UPDATE ${table} SET password=? WHERE ${idColumn}=?`)
+          .bind(await passwordHash(password), personId).run();
+      }
+
+      const qr = await createPersonQr(db, personType, personId);
+      const token = await makeSession(env, {
+        kind: "PERSON",
+        personType,
+        personId: person.person_id,
+        name: person.name
+      });
+
+      return json({
+        success: true,
+        token,
+        qr_token: qr,
+        user: {
+          name: person.name,
+          id: person.person_id,
+          kind: personType
+        }
+      });
+    }
+
+    // ALL ROUTES BELOW REQUIRE A VALID SESSION.
+
+    if (method === "GET" && path === "/api/me") {
+      const personSession = await requirePerson(request, env);
+      if (personSession) {
+        const person = await getPerson(db, personSession.personType, personSession.personId);
+        if (!person) return fail("Account not found.", 404);
+        return json({ success: true, user: person, qr_token: await createPersonQr(
+          db, personSession.personType, personSession.personId
+        ) });
+      }
+
+      const staffSession = await requireStaff(request, env);
+      if (staffSession) return json({ success: true, user: staffSession });
+      return fail("Please log in again.", 401);
+    }
+
+    // STAFF-ONLY ROUTES
+    const staff = await requireStaff(request, env);
+
+    if (method === "GET" && path === "/api/dashboard") {
+      if (!staff) return fail("Staff login required.", 401);
+
+      const [employees, interns, rooms, requests, cab, food] = await Promise.all([
+        db.prepare("SELECT COUNT(*) AS n FROM employees WHERE status='ACTIVE'").first(),
+        db.prepare("SELECT COUNT(*) AS n FROM interns WHERE status='ACTIVE'").first(),
+        db.prepare("SELECT COUNT(*) AS n FROM rooms WHERE status='ACTIVE'").first(),
+        db.prepare("SELECT COUNT(*) AS n FROM hr_requests WHERE status='PENDING'").first(),
+        db.prepare("SELECT COUNT(*) AS n FROM cab_entries WHERE entry_date=?").bind(nowIndia().date).first(),
+        db.prepare("SELECT COUNT(*) AS n FROM food_entries WHERE entry_date=?").bind(nowIndia().date).first()
+      ]);
+
+      return json({
+        success: true,
+        employees: employees.n,
+        interns: interns.n,
+        rooms: rooms.n,
+        pending_requests: requests.n,
+        cab_today: cab.n,
+        food_today: food.n
+      });
+    }
+
+    if (method === "GET" && path === "/api/people") {
+      if (!staff) return fail("Staff login required.", 401);
+
+      const employees = await db.prepare(`
+        SELECT employee_id AS person_id, name, department, designation, mobile,
+               shift, room, hostel_status, status, 'EMPLOYEE' AS person_type
+        FROM employees ORDER BY name
+      `).all();
+
+      const interns = await db.prepare(`
+        SELECT intern_id AS person_id, name, department, designation, mobile,
+               shift, room, hostel_status, status, 'INTERN' AS person_type
+        FROM interns ORDER BY name
+      `).all();
+
+      return json({ success: true, people: [...employees.results, ...interns.results] });
+    }
+
+    if (method === "POST" && path === "/api/people") {
+      if (!staff) return fail("Staff login required.", 401);
+      const b = await bodyOf(request);
+      const personType = String(b.person_type || "EMPLOYEE").toUpperCase();
+      const personId = String(b.person_id || "").trim();
+      const name = String(b.name || "").trim();
+      const department = String(b.department || "").toUpperCase();
+      const mobile = String(b.mobile || "").trim();
+
+      if (!["EMPLOYEE", "INTERN"].includes(personType) ||
+          !personId || !name || !mobile ||
+          !["PDN", "PDN2", "PDN3", "MDN"].includes(department)) {
+        return fail("Check person type, ID, name, mobile and department.");
+      }
+
+      const table = personType === "INTERN" ? "interns" : "employees";
+      const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
+      const exists = await db.prepare(
+        `SELECT id FROM ${table} WHERE ${idColumn}=?`
+      ).bind(personId).first();
+      if (exists) return fail("ID already exists.", 409);
+
+      const password = String(b.password || randomToken());
+      await db.prepare(`
+        INSERT INTO ${table}
+        (${idColumn}, name, department, designation, mobile, password, shift, room,
+         hostel_status, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IN', 'ACTIVE')
+      `).bind(
+        personId, name, department, b.designation || null, mobile,
+        await passwordHash(password), b.shift || null, b.room || null
+      ).run();
+
+      await createPersonQr(db, personType, personId);
+      await audit(db, staff.role, staff.staffId, "CREATE_PERSON", personType, personId);
+      return json({ success: true, message: "Person added." });
+    }
+
+    if (method === "POST" && path === "/api/people/update") {
+      if (!staff) return fail("Staff login required.", 401);
+      const b = await bodyOf(request);
+      const personType = String(b.person_type || "EMPLOYEE").toUpperCase();
+      const personId = String(b.person_id || "").trim();
+      if (!["EMPLOYEE", "INTERN"].includes(personType) || !personId) return fail("Invalid person.");
+
+      const table = personType === "INTERN" ? "interns" : "employees";
+      const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
+      const current = await db.prepare(
+        `SELECT id FROM ${table} WHERE ${idColumn}=?`
+      ).bind(personId).first();
+      if (!current) return fail("Person not found.", 404);
+
+      const allowed = ["name", "department", "designation", "mobile", "shift", "room", "hostel_status", "status"];
+      const sets = [];
+      const values = [];
+      for (const key of allowed) {
+        if (b[key] !== undefined) {
+          sets.push(`${key}=?`);
+          values.push(b[key]);
+        }
+      }
+      if (!sets.length) return fail("No fields to update.");
+      if (b.department !== undefined &&
+          !["PDN", "PDN2", "PDN3", "MDN"].includes(String(b.department).toUpperCase())) {
+        return fail("Invalid department.");
+      }
+      if (b.hostel_status !== undefined &&
+          !["IN", "OUT/LEAVE", "VACATED"].includes(b.hostel_status)) {
+        return fail("Invalid hostel status.");
+      }
+      if (b.status !== undefined && !["ACTIVE", "RESIGNED"].includes(b.status)) {
+        return fail("Invalid person status.");
+      }
+
+      values.push(personId);
+      await db.prepare(`UPDATE ${table} SET ${sets.join(", ")} WHERE ${idColumn}=?`)
+        .bind(...values).run();
+      await audit(db, staff.role, staff.staffId, "UPDATE_PERSON", personType, personId);
+      return json({ success: true, message: "Person updated." });
+    }
+
+    if (method === "POST" && path === "/api/people/delete") {
+      if (!staff) return fail("Staff login required.", 401);
+      const b = await bodyOf(request);
+      const type = String(b.person_type || "EMPLOYEE").toUpperCase();
+      const id = String(b.person_id || "").trim();
+      if (!["EMPLOYEE", "INTERN"].includes(type) || !id) return fail("Invalid person.");
+
+      const table = type === "INTERN" ? "interns" : "employees";
+      const idColumn = type === "INTERN" ? "intern_id" : "employee_id";
+      await db.prepare(`UPDATE ${table} SET status='RESIGNED' WHERE ${idColumn}=?`)
+        .bind(id).run();
+      await db.prepare(`
+        UPDATE qr_tokens SET status='INACTIVE'
+        WHERE person_type=? AND person_id=? AND qr_type='EMPLOYEE'
+      `).bind(type, id).run();
+
+      await audit(db, staff.role, staff.staffId, "RESIGN_PERSON", type, id);
+      return json({ success: true, message: "Person marked resigned." });
+    }
+
+    if (method === "POST" && path === "/api/hostel/status") {
+      if (!staff) return fail("Staff login required.", 401);
+      const b = await bodyOf(request);
+      const type = String(b.person_type || "EMPLOYEE").toUpperCase();
+      const id = String(b.person_id || "").trim();
+      const status = String(b.status || "").toUpperCase();
+
+      if (!["EMPLOYEE", "INTERN"].includes(type) ||
+          !["IN", "OUT/LEAVE", "VACATED"].includes(status)) {
+        return fail("Invalid hostel status.");
+      }
+
+      const table = type === "INTERN" ? "interns" : "employees";
+      const idColumn = type === "INTERN" ? "intern_id" : "employee_id";
+      const person = await db.prepare(
+        `SELECT name FROM ${table} WHERE ${idColumn}=?`
+      ).bind(id).first();
+      if (!person) return fail("Person not found.", 404);
+
+      const { date } = nowIndia();
+      await db.prepare(`UPDATE ${table} SET hostel_status=? WHERE ${idColumn}=?`)
+        .bind(status, id).run();
+      await db.prepare(`
+        INSERT INTO hostel_status_history
+        (person_type, person_id, status, out_date, return_date, remarks)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        type, id, status,
+        status === "OUT/LEAVE" ? date : null,
+        status === "IN" ? date : null,
+        b.remarks || null
+      ).run();
+
+      return json({ success: true });
+    }
+
+    if (method === "POST" && path === "/api/shift/update") {
+      const personSession = await requirePerson(request, env);
+      const b = await bodyOf(request);
+      const type = personSession ? personSession.personType :
+        String(b.person_type || "EMPLOYEE").toUpperCase();
+      const id = personSession ? personSession.personId : String(b.person_id || "").trim();
+      const shift = String(b.shift || "").toUpperCase();
+
+      if (!personSession && !staff) return fail("Login required.", 401);
+      if (personSession && b.person_id && b.person_id !== personSession.personId) {
+        return fail("You can update only your own shift.", 403);
+      }
+      if (!["SHIFT 1", "SHIFT 2", "SHIFT 3"].includes(shift)) {
+        return fail("Invalid shift.");
+      }
+
+      const table = type === "INTERN" ? "interns" : "employees";
+      const idColumn = type === "INTERN" ? "intern_id" : "employee_id";
+      const result = await db.prepare(`UPDATE ${table} SET shift=? WHERE ${idColumn}=?`)
+        .bind(shift, id).run();
+      if (!result.meta.changes) return fail("Person not found.", 404);
+
+      return json({ success: true, message: "Shift updated." });
+    }
+
+    if (method === "GET" && path === "/api/rooms") {
+      if (!staff) return fail("Staff login required.", 401);
+      const rows = await db.prepare("SELECT * FROM rooms ORDER BY room_number").all();
+      return json({ success: true, rooms: rows.results });
+    }
+
+    if (method === "POST" && path === "/api/rooms") {
+      if (!staff) return fail("Staff login required.", 401);
+      const b = await bodyOf(request);
+      const room = String(b.room_number || b.room || "").toUpperCase().trim();
+      if (!/^[A-D][1-8]$/.test(room) ||
+          (room.startsWith("A") && Number(room.slice(1)) > 4) ||
+          (room.startsWith("D") && Number(room.slice(1)) > 4)) {
+        return fail("Room must be A1-A4, B1-B8, C1-C8 or D1-D4.");
+      }
+
+      const block = room[0];
+      const status = b.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+      try {
+        await db.prepare(`
+          INSERT INTO rooms (room_number, block, status) VALUES (?, ?, ?)
+          ON CONFLICT(room_number) DO UPDATE SET block=excluded.block, status=excluded.status
+        `).bind(room, block, status).run();
+      } catch {
+        return fail("Could not save room.", 500);
+      }
+      return json({ success: true });
+    }
+
+    // HR SCANS A PERSON'S QR FOR CAB ENTRY.
+    if (method === "POST" && path === "/api/cab/scan") {
+      if (!staff) return fail("HR login required.", 401);
+      const b = await bodyOf(request);
+      const personQr = String(b.person_qr || b.qr_token || "").trim();
+      if (!personQr) return fail("Scan the employee/intern QR first.");
+
+      const qr = await db.prepare(`
+        SELECT person_type, person_id FROM qr_tokens
+        WHERE token=? AND qr_type='EMPLOYEE' AND status='ACTIVE' LIMIT 1
+      `).bind(personQr).first();
+      if (!qr) return fail("Invalid or inactive person QR.", 404);
+
+      const person = await getPerson(db, qr.person_type, qr.person_id);
+      if (!person || person.status !== "ACTIVE") return fail("Active person not found.", 404);
+
+      const { date, time } = nowIndia();
+      await db.prepare(`
+        INSERT INTO cab_entries
+        (person_type, person_id, name, department, shift, room, entry_date, entry_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        qr.person_type, qr.person_id, person.name, person.department,
+        person.shift || null, person.room || null, date, time
+      ).run();
+
+      await audit(db, staff.role, staff.staffId, "CAB_SCAN", qr.person_type, qr.person_id);
+      return json({
+        success: true,
+        message: "Cab entry saved.",
+        entry: {
+          name: person.name, id: qr.person_id, department: person.department,
+          shift: person.shift, room: person.room, date, time
+        }
+      });
+    }
+
+    if (method === "GET" && path === "/api/cab") {
+      if (!staff) return fail("Staff login required.", 401);
+      const date = url.searchParams.get("date") || nowIndia().date;
+      const rows = await db.prepare(`
+        SELECT * FROM cab_entries WHERE entry_date=?
+        ORDER BY entry_time DESC
+      `).bind(date).all();
+      return json({ success: true, entries: rows.results });
+    }
+
+    // FOOD QR: HR DISPLAYS THIS QR; EMPLOYEES/INTERNS SCAN IT.
+    if (method === "GET" && path === "/api/food/qr") {
+      if (!staff) return fail("Staff login required.", 401);
+      let config = await db.prepare(`
+        SELECT qr_token FROM food_qr_config WHERE status='ACTIVE' ORDER BY id DESC LIMIT 1
+      `).first();
+
+      if (!config) {
+        const token = randomToken();
+        await db.prepare(`
+          INSERT INTO food_qr_config (qr_token, status) VALUES (?, 'ACTIVE')
+        `).bind(token).run();
+        config = { qr_token: token };
+      }
+
+      return json({
+        success: true,
+        qr_token: config.qr_token,
+        scan_url: `${url.origin}/?food=${encodeURIComponent(config.qr_token)}`
+      });
+    }
+
+    if (method === "POST" && path === "/api/food/scan") {
+      const personSession = await requirePerson(request, env);
+      if (!personSession) return fail("Employee/intern login required.", 401);
+
+      const b = await bodyOf(request);
+      const foodToken = String(b.food_token || b.qr_token || "").trim();
+      const meal = String(b.meal_type || "").toUpperCase();
+      if (!foodToken) return fail("Scan the active food QR.");
+      if (!["BREAKFAST", "LUNCH", "DINNER"].includes(meal)) {
+        return fail("Select Breakfast, Lunch or Dinner.");
+      }
+
+      const config = await db.prepare(`
+        SELECT id FROM food_qr_config
+        WHERE qr_token=? AND status='ACTIVE' LIMIT 1
+      `).bind(foodToken).first();
+      if (!config) return fail("Invalid or inactive food QR.", 403);
+
+      const person = await getPerson(
+        db, personSession.personType, personSession.personId
+      );
+      if (!person || person.status !== "ACTIVE") return fail("Account is inactive.", 403);
+
+      const { date, time } = nowIndia();
+      const duplicate = await db.prepare(`
+        SELECT id FROM food_entries
+        WHERE person_type=? AND person_id=? AND meal_type=? AND entry_date=?
+        LIMIT 1
+      `).bind(personSession.personType, personSession.personId, meal, date).first();
+
+      if (duplicate) {
+        return fail(`Your ${meal.toLowerCase()} entry is already recorded today.`, 409);
+      }
+
+      await db.prepare(`
+        INSERT INTO food_entries
+        (person_type, person_id, name, department, meal_type, entry_date, entry_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        personSession.personType, personSession.personId, person.name,
+        person.department, meal, date, time
+      ).run();
+
+      await audit(
+        db, personSession.personType, personSession.personId,
+        "FOOD_SCAN", "FOOD", meal
+      );
+
+      return json({
+        success: true,
+        message: `${meal} entry saved.`,
+        entry: {
+          name: person.name, id: personSession.personId,
+          count: 1, meal, date, time
+        }
+      });
+    }
+
+    if (method === "GET" && path === "/api/food") {
+      if (!staff) return fail("Staff login required.", 401);
+      const date = url.searchParams.get("date") || nowIndia().date;
+      const rows = await db.prepare(`
+        SELECT * FROM food_entries WHERE entry_date=?
+        ORDER BY entry_time DESC
+      `).bind(date).all();
+
+      const counts = await db.prepare(`
+        SELECT meal_type, COUNT(*) AS count
+        FROM food_entries WHERE entry_date=?
+        GROUP BY meal_type
+      `).bind(date).all();
+
+      return json({ success: true, entries: rows.results, counts: counts.results });
+    }
+
+    if (method === "GET" && path === "/api/reports") {
+      if (!staff) return fail("Staff login required.", 401);
+      const month = url.searchParams.get("month") || nowIndia().date.slice(0, 7);
+
+      const food = await db.prepare(`
+        SELECT meal_type, COUNT(*) AS count
+        FROM food_entries WHERE substr(entry_date,1,7)=?
+        GROUP BY meal_type
+      `).bind(month).all();
+
+      const cab = await db.prepare(`
+        SELECT COUNT(*) AS count FROM cab_entries
+        WHERE substr(entry_date,1,7)=?
+      `).bind(month).first();
+
+      const attendance = await db.prepare(`
+        SELECT attendance_status, COUNT(*) AS count
+        FROM shift_attendance WHERE substr(attendance_date,1,7)=?
+        GROUP BY attendance_status
+      `).bind(month).all();
+
+      const dailyFood = await db.prepare(`
+        SELECT entry_date, meal_type, COUNT(*) AS count
+        FROM food_entries WHERE substr(entry_date,1,7)=?
+        GROUP BY entry_date, meal_type
+        ORDER BY entry_date
+      `).bind(month).all();
+
+      return json({
+        success: true, month, food: food.results,
+        daily_food: dailyFood.results, cab_total: cab.count,
+        attendance: attendance.results
+      });
+    }
+
+    // HR REQUESTS: PERSON CREATES, STAFF REVIEWS.
+    if (method === "POST" && path === "/api/requests") {
+      const personSession = await requirePerson(request, env);
+      if (!personSession) return fail("Employee/intern login required.", 401);
+
+      const b = await bodyOf(request);
+      const requestType = String(b.request_type || "").toUpperCase();
+      const allowed = ["LEAVE", "VACATE", "TEMPORARY_OUT", "RETURN", "OTHER"];
+      if (!allowed.includes(requestType)) return fail("Invalid request type.");
+
+      const person = await getPerson(db, personSession.personType, personSession.personId);
+      if (!person || person.status !== "ACTIVE") return fail("Account is inactive.", 403);
+
+      await db.prepare(`
+        INSERT INTO hr_requests
+        (person_type, person_id, name, request_type, from_date, to_date, remarks)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        personSession.personType, personSession.personId, person.name,
+        requestType, b.from_date || null, b.to_date || null,
+        String(b.remarks || "").slice(0, 1000) || null
+      ).run();
+
+      return json({ success: true, message: "Request sent to HR." });
+    }
+
+    if (method === "GET" && path === "/api/requests") {
+      const personSession = await requirePerson(request, env);
+      if (personSession) {
+        const rows = await db.prepare(`
+          SELECT * FROM hr_requests WHERE person_type=? AND person_id=?
+          ORDER BY id DESC
+        `).bind(personSession.personType, personSession.personId).all();
+        return json({ success: true, requests: rows.results });
+      }
+
+      if (!staff) return fail("Login required.", 401);
+      const status = url.searchParams.get("status");
+      const rows = status
+        ? await db.prepare("SELECT * FROM hr_requests WHERE status=? ORDER BY id DESC")
+            .bind(status).all()
+        : await db.prepare("SELECT * FROM hr_requests ORDER BY id DESC").all();
+
+      return json({ success: true, requests: rows.results });
+    }
+
+    if (method === "POST" && path === "/api/requests/review") {
+      if (!staff) return fail("HR login required.", 401);
+      const b = await bodyOf(request);
+      const id = Number(b.id);
+      const status = String(b.status || "").toUpperCase();
+      if (!id || !["APPROVED", "REJECTED"].includes(status)) {
+        return fail("Request ID and approval decision are required.");
+      }
+
+      const req = await db.prepare("SELECT * FROM hr_requests WHERE id=?")
+        .bind(id).first();
+      if (!req) return fail("Request not found.", 404);
+
+      await db.prepare(`
+        UPDATE hr_requests SET status=?, hr_remarks=?, reviewed_by=?,
+          updated_at=CURRENT_TIMESTAMP WHERE id=?
+      `).bind(
+        status, String(b.hr_remarks || "").slice(0, 1000),
+        staff.staffId, id
+      ).run();
+
+      // Change hostel status only after an approved request.
+      if (status === "APPROVED" &&
+          ["LEAVE", "VACATE", "TEMPORARY_OUT", "RETURN"].includes(req.request_type)) {
+        const table = req.person_type === "INTERN" ? "interns" : "employees";
+        const idColumn = req.person_type === "INTERN" ? "intern_id" : "employee_id";
+        const newStatus = req.request_type === "VACATE" ? "VACATED" :
+          req.request_type === "RETURN" ? "IN" : "OUT/LEAVE";
+
+        await db.prepare(`UPDATE ${table} SET hostel_status=? WHERE ${idColumn}=?`)
+          .bind(newStatus, req.person_id).run();
+
+        const { date } = nowIndia();
+        await db.prepare(`
+          INSERT INTO hostel_status_history
+          (person_type, person_id, status, out_date, return_date, remarks)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(
+          req.person_type, req.person_id, newStatus,
+          newStatus === "OUT/LEAVE" ? date : null,
+          newStatus === "IN" ? date : null,
+          b.hr_remarks || req.remarks || null
+        ).run();
+      }
+
+      await audit(db, staff.role, staff.staffId, "REVIEW_REQUEST", "HR_REQUEST", id, status);
+      return json({ success: true, message: `Request ${status.toLowerCase()}.` });
+    }
+
+    if (method === "GET" && path === "/api/attendance") {
+      if (!staff) return fail("Staff login required.", 401);
+      const date = url.searchParams.get("date") || nowIndia().date;
+      const rows = await db.prepare(`
+        SELECT * FROM shift_attendance WHERE attendance_date=?
+        ORDER BY department, person_id
+      `).bind(date).all();
+      return json({ success: true, entries: rows.results });
+    }
+
+    if (method === "POST" && path === "/api/attendance") {
+      if (!staff) return fail("Staff login required.", 401);
+      const b = await bodyOf(request);
+      const type = String(b.person_type || "EMPLOYEE").toUpperCase();
+      const id = String(b.person_id || "").trim();
+      const shift = String(b.shift || "").toUpperCase();
+      const status = String(b.attendance_status || b.status || "").toUpperCase();
+      const date = String(b.attendance_date || nowIndia().date);
+
+      if (!["EMPLOYEE", "INTERN"].includes(type) ||
+          !["SHIFT 1", "SHIFT 2", "SHIFT 3"].includes(shift) ||
+          !["PRESENT", "ABSENT", "N/A"].includes(status) || !id) {
+        return fail("Invalid attendance details.");
+      }
+
+      const person = await getPerson(db, type, id);
+      if (!person) return fail("Person not found.", 404);
+
+      await db.prepare(`
+        INSERT INTO shift_attendance
+        (person_type, person_id, attendance_date, shift, attendance_status, department, room)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        type, id, date, shift, status, person.department, person.room
+      ).run();
+
+      return json({ success: true });
+    }
+
+    if (method === "POST" && path === "/api/cleanup") {
+      if (!staff) return fail("Staff login required.", 401);
+      const result = await cleanupOldRecords(db);
+      return json({ success: true, deleted: result });
+    }
+
+    return fail("Route not found.", 404);
+  } catch (error) {
+    return json({
+      success: false,
+      message: "Server error.",
+      detail: String(error?.message || error)
+    }, 500);
+  }
+}
+
+async function cleanupOldRecords(db) {
+  const result = {};
+  for (const table of ["cab_entries", "food_entries", "shift_attendance"]) {
+    const dateColumn = table === "shift_attendance" ? "attendance_date" : "entry_date";
+    const r = await db.prepare(`
+      DELETE FROM ${table}
+      WHERE ${dateColumn} < date('now','-1 month')
+    `).run();
+    result[table] = r.meta?.changes || 0;
+  }
+  return result;
+}
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    const path = url.pathname;
-
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders() });
-    }
-
-    try {
-      if (!env.DB) {
-        return json({ success: false, message: "DB binding missing" }, 500);
-      }
-
-      if (path === "/" && request.method === "GET") {
-        return json({
-          success: true,
-          message: "TEXMO Hostel Hub online",
-          version: VERSION
-        });
-      }
-
-      if (path === "/api/db-test" && request.method === "GET") {
-        const result = await env.DB.prepare("SELECT 1 AS test").first();
-        return json({ success: true, result });
-      }
-
-      if (path === "/api/staff/register" && request.method === "POST") {
-        return await staffRegister(request, env);
-      }
-
-      if (path === "/api/staff/login" && request.method === "POST") {
-        return await staffLogin(request, env);
-      }
-
-      if (path === "/api/person/register" && request.method === "POST") {
-        return await personRegister(request, env);
-      }
-
-      if (path === "/api/person/login" && request.method === "POST") {
-        return await personLogin(request, env);
-      }
-
-      if (path === "/api/dashboard" && request.method === "GET") {
-        return await dashboard(env);
-      }
-
-      if (path === "/api/people" && request.method === "GET") {
-        return await listPeople(url, env);
-      }
-
-      if (path === "/api/people" && request.method === "POST") {
-        return await createPerson(request, env);
-      }
-
-      if (path === "/api/people/update" && request.method === "POST") {
-        return await updatePerson(request, env);
-      }
-
-      if (path === "/api/people/delete" && request.method === "POST") {
-        return await deletePerson(request, env);
-      }
-
-      if (path === "/api/hostel/status" && request.method === "POST") {
-        return await updateHostelStatus(request, env);
-      }
-
-      if (path === "/api/shift/update" && request.method === "POST") {
-        return await updateShift(request, env);
-      }
-
-      if (path === "/api/attendance" && request.method === "GET") {
-        return await getAttendance(url, env);
-      }
-
-      if (path === "/api/attendance" && request.method === "POST") {
-        return await saveAttendance(request, env);
-      }
-
-      if (path === "/api/rooms" && request.method === "GET") {
-        return await getRooms(env);
-      }
-
-      if (path === "/api/rooms" && request.method === "POST") {
-        return await saveRoom(request, env);
-      }
-
-      if (path === "/api/cab" && request.method === "GET") {
-        return await getCabEntries(url, env);
-      }
-
-      if (path === "/api/cab" && request.method === "POST") {
-        return await saveCabEntry(request, env);
-      }
-
-      if (path === "/api/food" && request.method === "GET") {
-        return await getFoodEntries(url, env);
-      }
-
-      if (path === "/api/food" && request.method === "POST") {
-        return await saveFoodEntry(request, env);
-      }
-
-      if (path === "/api/food/config" && request.method === "POST") {
-        return await saveFoodConfig(request, env);
-      }
-
-      if (path === "/api/reports" && request.method === "GET") {
-        return await getReports(env);
-      }
-
-      if (path === "/api/cleanup" && request.method === "POST") {
-        return await cleanupOldEntries(env);
-      }
-
-      return json({ success: false, message: "API route not found" }, 404);
-    } catch (error) {
-      return json({
-        success: false,
-        message: "Server error",
-        error: error.message
-      }, 500);
-    }
+    return handle(request, env);
   },
 
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(cleanupOldEntries(env));
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(cleanupOldRecords(env.DB));
   }
 };
-
-async function staffRegister(request, env) {
-  const b = await request.json();
-  const name = str(b.name);
-  const staff_id = str(b.staff_id);
-  const mobile = str(b.mobile);
-  const password = String(b.password || "");
-  const role = str(b.role).toUpperCase();
-  const master_key = String(b.master_key || "");
-
-  if (!name || !staff_id || !mobile || !password || !role || !master_key) {
-    return json({ success: false, message: "All fields are required" }, 400);
-  }
-
-  if (password.length < 8) {
-    return json({ success: false, message: "Password must be at least 8 characters" }, 400);
-  }
-
-  if (!ROLES.includes(role)) {
-    return json({ success: false, message: "Invalid role" }, 400);
-  }
-
-  if (!env.TEXMO_MASTER_KEY || master_key !== env.TEXMO_MASTER_KEY) {
-    return json({ success: false, message: "Invalid Master Key" }, 401);
-  }
-
-  try {
-    await env.DB.prepare(`
-      INSERT INTO staff (name, staff_id, mobile, password, role)
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(name, staff_id, mobile, password, role).run();
-
-    return json({ success: true, message: "Staff registered successfully" }, 201);
-  } catch (e) {
-    if (String(e.message).includes("UNIQUE")) {
-      return json({ success: false, message: "Staff ID already exists" }, 409);
-    }
-    throw e;
-  }
-}
-
-async function staffLogin(request, env) {
-  const b = await request.json();
-  const staff_id = str(b.staff_id);
-  const password = String(b.password || "");
-
-  if (!staff_id || !password) {
-    return json({ success: false, message: "Enter Staff ID and password" }, 400);
-  }
-
-  const staff = await env.DB.prepare(`
-    SELECT id, name, staff_id, mobile, role, status
-    FROM staff
-    WHERE staff_id = ? AND password = ? AND status = 'ACTIVE'
-    LIMIT 1
-  `).bind(staff_id, password).first();
-
-  if (!staff) {
-    return json({ success: false, message: "Invalid Staff ID or password" }, 401);
-  }
-
-  return json({ success: true, message: "Login successful", staff });
-}
-
-async function personRegister(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-  const name = str(b.name);
-  const department = str(b.department).toUpperCase();
-  const mobile = str(b.mobile);
-  const password = String(b.password || "");
-  const designation = str(b.designation);
-  const shift = str(b.shift).toUpperCase();
-  const room = str(b.room).toUpperCase();
-
-  if (!PERSON_TYPES.includes(type)) {
-    return json({ success: false, message: "Choose Employee or Internship" }, 400);
-  }
-
-  if (!id || !name || !department || !mobile || !password) {
-    return json({ success: false, message: "Fill all required fields" }, 400);
-  }
-
-  if (!DEPARTMENTS.includes(department)) {
-    return json({ success: false, message: "Invalid department" }, 400);
-  }
-
-  if (password.length < 8) {
-    return json({ success: false, message: "Password must be at least 8 characters" }, 400);
-  }
-
-  if (shift && !SHIFTS.includes(shift)) {
-    return json({ success: false, message: "Invalid shift" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-
-  try {
-    await env.DB.prepare(`
-      INSERT INTO ${table}
-      (${idColumn}, name, department, designation, mobile, password, shift, room)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(id, name, department, designation, mobile, password, shift || null, room || null).run();
-
-    await env.DB.prepare(`
-      INSERT INTO qr_tokens (token, qr_type, person_type, person_id)
-      VALUES (?, 'EMPLOYEE', ?, ?)
-    `).bind(crypto.randomUUID(), type, id).run();
-
-    await logAudit(env, "PERSON", id, "REGISTER", type, id, { name, department });
-
-    return json({ success: true, message: "Registration successful" }, 201);
-  } catch (e) {
-    if (String(e.message).includes("UNIQUE")) {
-      return json({ success: false, message: "ID already registered" }, 409);
-    }
-    throw e;
-  }
-}
-
-async function personLogin(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-  const password = String(b.password || "");
-
-  if (!PERSON_TYPES.includes(type) || !id || !password) {
-    return json({ success: false, message: "Enter ID and password" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-
-  const person = await env.DB.prepare(`
-    SELECT id, ${idColumn} AS person_id, name, department, designation,
-           mobile, shift, room, hostel_status, status
-    FROM ${table}
-    WHERE ${idColumn} = ? AND password = ? AND status = 'ACTIVE'
-    LIMIT 1
-  `).bind(id, password).first();
-
-  if (!person) {
-    return json({ success: false, message: "Invalid ID or password" }, 401);
-  }
-
-  const qr = await env.DB.prepare(`
-    SELECT token FROM qr_tokens
-    WHERE person_type = ? AND person_id = ? AND qr_type = 'EMPLOYEE'
-      AND status = 'ACTIVE'
-    LIMIT 1
-  `).bind(type, id).first();
-
-  return json({
-    success: true,
-    message: "Login successful",
-    person_type: type,
-    person,
-    qr_token: qr ? qr.token : null
-  });
-}
-
-async function dashboard(env) {
-  const queries = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS n FROM employees WHERE status='ACTIVE'").first(),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM interns WHERE status='ACTIVE'").first(),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM employees WHERE hostel_status='IN' AND status='ACTIVE'").first(),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM interns WHERE hostel_status='IN' AND status='ACTIVE'").first(),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM employees WHERE hostel_status='OUT/LEAVE' AND status='ACTIVE'").first(),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM interns WHERE hostel_status='OUT/LEAVE' AND status='ACTIVE'").first(),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM employees WHERE hostel_status='VACATED'").first(),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM interns WHERE hostel_status='VACATED'").first()
-  ]);
-
-  return json({
-    success: true,
-    employees: queries[0].n,
-    interns: queries[1].n,
-    in_hostel: queries[2].n + queries[3].n,
-    out_or_leave: queries[4].n + queries[5].n,
-    vacated: queries[6].n + queries[7].n
-  });
-}
-
-async function listPeople(url, env) {
-  const type = str(url.searchParams.get("type") || "ALL").toUpperCase();
-  const status = str(url.searchParams.get("status") || "ALL").toUpperCase();
-  const output = [];
-
-  if (type === "ALL" || type === "EMPLOYEE") {
-    const rows = await env.DB.prepare(`
-      SELECT id, employee_id AS person_id, name, department, designation,
-             mobile, shift, room, hostel_status, status, created_at,
-             'EMPLOYEE' AS person_type
-      FROM employees
-      WHERE (? = 'ALL' OR status = ?)
-      ORDER BY name
-    `).bind(status, status).all();
-    output.push(...rows.results);
-  }
-
-  if (type === "ALL" || type === "INTERN") {
-    const rows = await env.DB.prepare(`
-      SELECT id, intern_id AS person_id, name, department, designation,
-             mobile, shift, room, hostel_status, status, created_at,
-             'INTERN' AS person_type
-      FROM interns
-      WHERE (? = 'ALL' OR status = ?)
-      ORDER BY name
-    `).bind(status, status).all();
-    output.push(...rows.results);
-  }
-
-  return json({ success: true, people: output });
-}
-
-async function createPerson(request, env) {
-  return personRegister(request, env);
-}
-
-async function updatePerson(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-
-  if (!PERSON_TYPES.includes(type) || !id) {
-    return json({ success: false, message: "Person type and ID required" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-  const fields = ["name", "department", "designation", "mobile", "shift", "room", "hostel_status", "status"];
-  const updates = [];
-  const values = [];
-
-  for (const field of fields) {
-    if (b[field] !== undefined) {
-      const value = field === "department" ? str(b[field]).toUpperCase()
-        : field === "shift" ? str(b[field]).toUpperCase()
-        : field === "room" ? str(b[field]).toUpperCase()
-        : field === "hostel_status" ? str(b[field]).toUpperCase()
-        : field === "status" ? str(b[field]).toUpperCase()
-        : b[field];
-
-      if (field === "department" && !DEPARTMENTS.includes(value)) {
-        return json({ success: false, message: "Invalid department" }, 400);
-      }
-      if (field === "shift" && value && !SHIFTS.includes(value)) {
-        return json({ success: false, message: "Invalid shift" }, 400);
-      }
-      if (field === "hostel_status" && !["IN", "OUT/LEAVE", "VACATED"].includes(value)) {
-        return json({ success: false, message: "Invalid hostel status" }, 400);
-      }
-      if (field === "status" && !["ACTIVE", "RESIGNED"].includes(value)) {
-        return json({ success: false, message: "Invalid person status" }, 400);
-      }
-
-      updates.push(`${field} = ?`);
-      values.push(value || null);
-    }
-  }
-
-  if (b.password) {
-    updates.push("password = ?");
-    values.push(String(b.password));
-  }
-
-  if (!updates.length) {
-    return json({ success: false, message: "No fields to update" }, 400);
-  }
-
-  values.push(id);
-
-  await env.DB.prepare(`
-    UPDATE ${table} SET ${updates.join(", ")}
-    WHERE ${idColumn} = ?
-  `).bind(...values).run();
-
-  await logAudit(env, "STAFF", null, "UPDATE_PERSON", type, id, b);
-
-  return json({ success: true, message: "Person updated" });
-}
-
-async function deletePerson(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-
-  if (!PERSON_TYPES.includes(type) || !id) {
-    return json({ success: false, message: "Person type and ID required" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-
-  await env.DB.prepare(`DELETE FROM ${table} WHERE ${idColumn} = ?`).bind(id).run();
-  await env.DB.prepare(`
-    UPDATE qr_tokens SET status = 'INACTIVE'
-    WHERE person_type = ? AND person_id = ?
-  `).bind(type, id).run();
-
-  await logAudit(env, "STAFF", null, "DELETE_PERSON", type, id, {});
-  return json({ success: true, message: "Person deleted" });
-}
-
-async function updateHostelStatus(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-  const status = str(b.hostel_status).toUpperCase();
-
-  if (!PERSON_TYPES.includes(type) || !id ||
-      !["IN", "OUT/LEAVE", "VACATED"].includes(status)) {
-    return json({ success: false, message: "Invalid person or status" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-
-  const person = await env.DB.prepare(`
-    SELECT name FROM ${table} WHERE ${idColumn} = ?
-  `).bind(id).first();
-
-  if (!person) return json({ success: false, message: "Person not found" }, 404);
-
-  await env.DB.prepare(`
-    UPDATE ${table} SET hostel_status = ? WHERE ${idColumn} = ?
-  `).bind(status, id).run();
-
-  await env.DB.prepare(`
-    INSERT INTO hostel_status_history
-      (person_type, person_id, status, out_date, return_date, remarks)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(
-    type, id, status,
-    status === "OUT/LEAVE" ? new Date().toISOString().slice(0, 10) : null,
-    status === "IN" ? new Date().toISOString().slice(0, 10) : null,
-    str(b.remarks) || null
-  ).run();
-
-  await logAudit(env, "STAFF", null, "HOSTEL_STATUS", type, id, { status });
-  return json({ success: true, message: "Hostel status updated" });
-}
-
-async function updateShift(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-  const shift = str(b.shift).toUpperCase();
-
-  if (!PERSON_TYPES.includes(type) || !id || !SHIFTS.includes(shift)) {
-    return json({ success: false, message: "Invalid shift details" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-
-  await env.DB.prepare(`
-    UPDATE ${table} SET shift = ? WHERE ${idColumn} = ?
-  `).bind(shift, id).run();
-
-  return json({ success: true, message: "Shift updated" });
-}
-
-async function getAttendance(url, env) {
-  const date = str(url.searchParams.get("date")) || new Date().toISOString().slice(0, 10);
-  const rows = await env.DB.prepare(`
-    SELECT * FROM shift_attendance
-    WHERE attendance_date = ?
-    ORDER BY department, person_id
-  `).bind(date).all();
-
-  return json({ success: true, attendance: rows.results });
-}
-
-async function saveAttendance(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-  const date = str(b.attendance_date) || new Date().toISOString().slice(0, 10);
-  const shift = str(b.shift).toUpperCase();
-  const status = str(b.attendance_status).toUpperCase();
-
-  if (!PERSON_TYPES.includes(type) || !id ||
-      !SHIFTS.includes(shift) ||
-      !["PRESENT", "ABSENT", "N/A"].includes(status)) {
-    return json({ success: false, message: "Invalid attendance details" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-  const person = await env.DB.prepare(`
-    SELECT department, room FROM ${table} WHERE ${idColumn} = ?
-  `).bind(id).first();
-
-  if (!person) return json({ success: false, message: "Person not found" }, 404);
-
-  await env.DB.prepare(`
-    DELETE FROM shift_attendance
-    WHERE person_type = ? AND person_id = ? AND attendance_date = ? AND shift = ?
-  `).bind(type, id, date, shift).run();
-
-  await env.DB.prepare(`
-    INSERT INTO shift_attendance
-      (person_type, person_id, attendance_date, shift, attendance_status, department, room)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).bind(type, id, date, shift, status, person.department, person.room).run();
-
-  return json({ success: true, message: "Attendance saved" });
-}
-
-async function getRooms(env) {
-  const rooms = await env.DB.prepare(`
-    SELECT r.*,
-      (SELECT COUNT(*) FROM employees e
-       WHERE e.room = r.room_number AND e.status = 'ACTIVE'
-         AND e.hostel_status = 'IN') +
-      (SELECT COUNT(*) FROM interns i
-       WHERE i.room = r.room_number AND i.status = 'ACTIVE'
-         AND i.hostel_status = 'IN') AS occupied
-    FROM rooms r
-    ORDER BY block, room_number
-  `).all();
-
-  return json({ success: true, rooms: rooms.results });
-}
-
-async function saveRoom(request, env) {
-  const b = await request.json();
-  const room_number = str(b.room_number).toUpperCase();
-  const block = str(b.block).toUpperCase();
-
-  if (!room_number || !block) {
-    return json({ success: false, message: "Room number and block required" }, 400);
-  }
-
-  await env.DB.prepare(`
-    INSERT INTO rooms (room_number, block)
-    VALUES (?, ?)
-    ON CONFLICT(room_number) DO UPDATE SET block = excluded.block
-  `).bind(room_number, block).run();
-
-  return json({ success: true, message: "Room saved" });
-}
-
-async function getCabEntries(url, env) {
-  const date = str(url.searchParams.get("date")) || new Date().toISOString().slice(0, 10);
-  const rows = await env.DB.prepare(`
-    SELECT * FROM cab_entries WHERE entry_date = ?
-    ORDER BY entry_time DESC
-  `).bind(date).all();
-
-  return json({ success: true, entries: rows.results });
-}
-
-async function saveCabEntry(request, env) {
-  const b = await request.json();
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-  const shift = str(b.shift).toUpperCase();
-
-  if (!PERSON_TYPES.includes(type) || !id) {
-    return json({ success: false, message: "Valid person details required" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-  const person = await env.DB.prepare(`
-    SELECT name, department, room FROM ${table}
-    WHERE ${idColumn} = ? AND status = 'ACTIVE'
-  `).bind(id).first();
-
-  if (!person) return json({ success: false, message: "Active person not found" }, 404);
-
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const time = now.toISOString().slice(11, 19);
-
-  await env.DB.prepare(`
-    INSERT INTO cab_entries
-      (person_type, person_id, name, department, shift, room, entry_date, entry_time)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    type, id, person.name, person.department,
-    SHIFTS.includes(shift) ? shift : null,
-    person.room, date, time
-  ).run();
-
-  return json({ success: true, message: "Cab entry saved", entry_date: date, entry_time: time });
-}
-
-async function getFoodEntries(url, env) {
-  const date = str(url.searchParams.get("date")) || new Date().toISOString().slice(0, 10);
-  const rows = await env.DB.prepare(`
-    SELECT * FROM food_entries WHERE entry_date = ?
-    ORDER BY entry_time DESC
-  `).bind(date).all();
-
-  return json({ success: true, entries: rows.results });
-}
-
-async function saveFoodEntry(request, env) {
-  const b = await request.json();
-  const token = str(b.qr_token);
-  const meal = str(b.meal_type).toUpperCase();
-
-  if (!token || !["BREAKFAST", "LUNCH", "DINNER"].includes(meal)) {
-    return json({ success: false, message: "QR token and valid meal type required" }, 400);
-  }
-
-  const foodToken = await env.DB.prepare(`
-    SELECT id FROM food_qr_config WHERE qr_token = ? AND status = 'ACTIVE'
-  `).bind(token).first();
-
-  if (!foodToken) {
-    return json({ success: false, message: "Invalid food QR token" }, 401);
-  }
-
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const time = now.toISOString().slice(11, 19);
-
-  const type = str(b.person_type).toUpperCase();
-  const id = str(b.person_id);
-  if (!PERSON_TYPES.includes(type) || !id) {
-    return json({ success: false, message: "Person details required" }, 400);
-  }
-
-  const table = type === "EMPLOYEE" ? "employees" : "interns";
-  const idColumn = type === "EMPLOYEE" ? "employee_id" : "intern_id";
-  const person = await env.DB.prepare(`
-    SELECT name, department FROM ${table}
-    WHERE ${idColumn} = ? AND status = 'ACTIVE'
-  `).bind(id).first();
-
-  if (!person) return json({ success: false, message: "Active person not found" }, 404);
-
-  const duplicate = await env.DB.prepare(`
-    SELECT id FROM food_entries
-    WHERE person_type = ? AND person_id = ? AND meal_type = ? AND entry_date = ?
-  `).bind(type, id, meal, date).first();
-
-  if (duplicate) {
-    return json({ success: false, message: "This meal is already recorded today" }, 409);
-  }
-
-  await env.DB.prepare(`
-    INSERT INTO food_entries
-      (person_type, person_id, name, department, meal_type, entry_date, entry_time)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).bind(type, id, person.name, person.department, meal, date, time).run();
-
-  return json({ success: true, message: "Food entry saved", entry_date: date, entry_time: time });
-}
-
-async function saveFoodConfig(request, env) {
-  const b = await request.json();
-  const token = str(b.qr_token);
-  const status = str(b.status || "ACTIVE").toUpperCase();
-
-  if (!token || !["ACTIVE", "INACTIVE"].includes(status)) {
-    return json({ success: false, message: "Valid QR token and status required" }, 400);
-  }
-
-  await env.DB.prepare(`
-    INSERT INTO food_qr_config (qr_token, status)
-    VALUES (?, ?)
-    ON CONFLICT(qr_token) DO UPDATE SET status = excluded.status
-  `).bind(token, status).run();
-
-  return json({ success: true, message: "Food QR configuration saved" });
-}
-
-async function getReports(env) {
-  const [people, rooms, food, cab, attendance] = await Promise.all([
-    env.DB.prepare(`
-      SELECT department, COUNT(*) AS total
-      FROM employees WHERE status = 'ACTIVE' GROUP BY department
-    `).all(),
-    env.DB.prepare(`
-      SELECT block, COUNT(*) AS total FROM rooms GROUP BY block
-    `).all(),
-    env.DB.prepare(`
-      SELECT meal_type, COUNT(*) AS total FROM food_entries
-      WHERE entry_date = date('now') GROUP BY meal_type
-    `).all(),
-    env.DB.prepare(`
-      SELECT COUNT(*) AS total FROM cab_entries
-      WHERE entry_date = date('now')
-    `).first(),
-    env.DB.prepare(`
-      SELECT attendance_status, COUNT(*) AS total
-      FROM shift_attendance WHERE attendance_date = date('now')
-      GROUP BY attendance_status
-    `).all()
-  ]);
-
-  return json({
-    success: true,
-    employee_departments: people.results,
-    rooms_by_block: rooms.results,
-    food_today: food.results,
-    cab_today: cab.total,
-    attendance_today: attendance.results
-  });
-}
-
-async function cleanupOldEntries(env) {
-  await Promise.all([
-    env.DB.prepare("DELETE FROM cab_entries WHERE entry_date < date('now', '-1 month')").run(),
-    env.DB.prepare("DELETE FROM food_entries WHERE entry_date < date('now', '-1 month')").run(),
-    env.DB.prepare("DELETE FROM shift_attendance WHERE attendance_date < date('now', '-1 month')").run()
-  ]);
-
-  return json({ success: true, message: "Old records cleaned" });
-}
-
-async function logAudit(env, actorType, actorId, action, targetType, targetId, details) {
-  await env.DB.prepare(`
-    INSERT INTO audit_logs (actor_type, actor_id, action, target_type, target_id, details)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(
-    actorType, actorId, action, targetType, targetId,
-    JSON.stringify(details || {})
-  ).run();
-}
-
-function str(value) {
-  return String(value ?? "").trim();
-}
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
-}
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      ...corsHeaders()
-    }
-  });
-}
