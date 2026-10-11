@@ -1,922 +1,543 @@
-const API_BASE = "";
 
-const $ = id => document.getElementById(id);
-const STAFF_KEY = "texmo_staff_session";
-const PERSON_KEY = "texmo_person_session";
+(() => {
+  "use strict";
 
-function getStaff() {
-  try { return JSON.parse(localStorage.getItem(STAFF_KEY) || "null"); }
-  catch { return null; }
-}
+  const API = "";
+  const $ = (s, root = document) => root.querySelector(s);
+  const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[c]));
+  let token = localStorage.getItem("thh_token") || "";
+  let user = null;
+  let activeTab = "Dashboard";
+  let cameraStream = null;
+  let cameraMode = "cab";
+  let cachedPeople = { employees: [], interns: [] };
 
-function getPerson() {
-  try { return JSON.parse(localStorage.getItem(PERSON_KEY) || "null"); }
-  catch { return null; }
-}
+  const css = `
+  :root{--green:#087f43;--deep:#075c34;--light:#eaf8ef;--ink:#172b21;--muted:#64756a;--line:#dce9df;--white:#fff;--red:#b42318}
+  *{box-sizing:border-box}body{margin:0;background:#f3f8f4;color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+  button,input,select,textarea{font:inherit}button{cursor:pointer;border:0;border-radius:10px;padding:11px 15px;background:var(--green);color:#fff;font-weight:650}
+  button:hover{filter:brightness(.96)}button.secondary{background:#e7f3eb;color:var(--deep)}button.danger{background:#b42318}button.small{padding:7px 10px;font-size:13px}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid #cbd9ce;border-radius:10px;background:#fff;color:#172b21;outline-color:var(--green)}
+  textarea{min-height:78px;resize:vertical}label{display:block;font-weight:650;font-size:13px;margin:0 0 6px}
+  .field{margin-bottom:13px;min-width:0}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .shell{min-height:100vh}.top{background:linear-gradient(120deg,#075c34,#0b9a50);color:#fff;padding:20px max(16px,calc((100% - 1200px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{font-size:21px;font-weight:850;letter-spacing:.2px}.sub{opacity:.86;font-size:12px}.top button{background:#fff;color:#075c34}
+  .wrap{max-width:1200px;margin:auto;padding:18px}.nav{display:flex;gap:8px;overflow-x:auto;padding:4px 0 14px}
+  .nav button{white-space:nowrap;background:#e4eee7;color:#345343}.nav button.on{background:#087f43;color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px;box-shadow:0 3px 12px #143f1f08;min-width:0}
+  .stat{font-size:28px;font-weight:850;color:var(--green);margin:7px 0}.muted{color:var(--muted);font-size:13px}.title{font-size:19px;font-weight:800;margin:0 0 12px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:600px;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e6eee8;vertical-align:top}th{background:#f0f7f2;color:#355541}
+  .pill{display:inline-block;border-radius:100px;padding:4px 8px;background:#e7f3eb;color:#075c34;font-size:11px;font-weight:750}.pill.red{background:#ffeded;color:#a51d18}.pill.amber{background:#fff3d9;color:#845600}
+  .msg{margin:10px 0;padding:11px 13px;border-radius:10px;background:#e7f3eb;color:#075c34}.msg.error{background:#ffeded;color:#a51d18}
+  .auth{max-width:470px;margin:5vh auto;padding:20px}.logo{font-size:31px;font-weight:900;color:#087f43}.hint{font-size:12px;color:#64756a;margin:8px 0}
+  .qr{width:min(270px,100%);aspect-ratio:1;object-fit:contain;background:white;border:1px solid var(--line);border-radius:12px}
+  video{width:100%;max-height:360px;background:#111;border-radius:12px}.hidden{display:none!important}.foot{text-align:center;color:#728378;padding:22px;font-size:12px}
+  @media(max-width:800px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wrap{padding:12px}.top{padding:15px}.cards{grid-template-columns:1fr}}
+  @media(max-width:430px){.formgrid{grid-template-columns:1fr}.grid{gap:8px}.stat{font-size:24px}.card{padding:13px}.brand{font-size:18px}}
+  `;
 
-function saveSession(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
+  document.head.insertAdjacentHTML("beforeend", `<style>${css}</style>`);
+  document.body.innerHTML = `<div id="thh-root"></div>`;
 
-function sessionToken() {
-  const s = getStaff() || getPerson();
-  return s?.token || s?.session_token || s?.session || "";
-}
-
-async function api(path, method = "GET", data = null) {
-  const headers = { "Content-Type": "application/json" };
-  const token = sessionToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    ...(data !== null ? { body: JSON.stringify(data) } : {})
-  });
-
-  let result;
-  try { result = await response.json(); }
-  catch { throw new Error("Server response JSON format-la illa."); }
-
-  if (!response.ok || result.success === false) {
-    throw new Error(result.message || `Request failed (${response.status})`);
+  async function api(path, options = {}) {
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (token) headers.Authorization = "Bearer " + token;
+    const res = await fetch(API + path, { ...options, headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) throw new Error(data.message || data.detail || "Request failed");
+    return data;
   }
-  return result;
-}
 
-function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;",
-    '"': "&quot;", "'": "&#39;"
-  })[c]);
-}
-
-function message(text) {
-  let el = $("appMessage");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "appMessage";
-    el.style.cssText =
-      "position:sticky;top:5px;z-index:9999;background:#e9f8ef;color:#126c3b;padding:12px;margin:8px;border-radius:10px;font-weight:600";
-    document.body.prepend(el);
+  function say(message, error = false) {
+    const box = $("#notice");
+    if (!box) { alert(message); return; }
+    box.className = "msg" + (error ? " error" : "");
+    box.textContent = message;
+    box.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
-  el.textContent = text;
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
 
-function showOnly(id) {
-  document.querySelectorAll(".screen").forEach(el => {
-    el.classList.toggle("active", el.id === id);
-  });
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
+  function field(label, name, type = "text", value = "", required = false) {
+    return `<div class="field"><label for="${esc(name)}">${esc(label)}</label>
+      <input id="${esc(name)}" name="${esc(name)}" type="${esc(type)}" value="${esc(value)}" ${required ? "required" : ""}></div>`;
+  }
 
-function showScreen(id) {
-  showOnly(id);
-}
+  function selectField(label, name, options, value = "") {
+    return `<div class="field"><label for="${esc(name)}">${esc(label)}</label><select id="${esc(name)}" name="${esc(name)}">
+      ${options.map(o => `<option value="${esc(o)}" ${o === value ? "selected" : ""}>${esc(o || "Select")}</option>`).join("")}
+    </select></div>`;
+  }
 
-function btn(text, action, color = "#147a43") {
-  return `<button type="button" onclick="${action}"
-    style="background:${color};color:white;border:0;border-radius:9px;padding:11px 14px;margin:4px;font-weight:700">
-    ${text}</button>`;
-}
+  function root(html) { $("#thh-root").innerHTML = html; }
 
-function field(id, label, type = "text", required = true) {
-  return `<label style="display:block;margin:10px 0;font-weight:600">
-    ${label}
-    <input id="${id}" type="${type}" ${required ? "required" : ""}
-      style="width:100%;box-sizing:border-box;padding:11px;margin-top:5px;border:1px solid #cad9ce;border-radius:9px">
-  </label>`;
-}
+  function loginScreen(register = false) {
+    stopCamera();
+    root(`<main class="auth">
+      <section class="card">
+        <div class="logo">THH</div><div class="title">TEXMO HOSTEL HUB</div>
+        <p class="muted">Hostel Management System</p>
+        <div id="notice" class="hidden"></div>
+        <div class="field"><label>Portal</label><select id="accountType">
+          <option value="STAFF">HR / Management / Admin</option>
+          <option value="EMPLOYEE">Employee</option><option value="INTERN">Intern</option>
+        </select></div>
+        <form id="authForm">
+          ${field("Staff ID / Employee ID / Intern ID", "loginId", "text", "", true)}
+          ${field("Password", "loginPassword", "password", "", true)}
+          <div id="registerFields" class="${register ? "" : "hidden"}">
+            ${field("Full name", "regName")}
+            ${field("Mobile number", "regMobile", "tel")}
+            ${field("Department (PDN / PDN2 / PDN3 / MDN)", "regDepartment")}
+            ${field("Designation", "regDesignation")}
+            ${field("Shift (SHIFT 1 / SHIFT 2 / SHIFT 3)", "regShift")}
+            ${field("Room", "regRoom")}
+            ${field("HR master key (staff registration only)", "masterKey", "password")}
+            <div class="field"><label>Staff role (staff registration only)</label>
+              <select id="regRole"><option>HR</option><option>MANAGEMENT</option><option>ADMIN</option></select></div>
+          </div>
+          <button id="authSubmit" type="submit" style="width:100%">${register ? "Create account" : "Log in"}</button>
+        </form>
+        <div class="actions"><button id="toggleRegister" class="secondary" style="width:100%">${register ? "Back to login" : "New account / Staff registration"}</button></div>
+        <p class="hint">Staff registration requires the authorized master key. No password recovery is enabled.</p>
+      </section>
+      <div class="foot">TEXMO HOSTEL HUB · Secure access</div>
+    </main>`);
 
-function selectField(id, label, options) {
-  return `<label style="display:block;margin:10px 0;font-weight:600">${label}
-    <select id="${id}" style="width:100%;padding:11px;margin-top:5px;border:1px solid #cad9ce;border-radius:9px">
-      ${options.map(x => `<option value="${escapeHTML(x)}">${escapeHTML(x)}</option>`).join("")}
-    </select>
-  </label>`;
-}
+    $("#toggleRegister").onclick = () => loginScreen(!register);
+    $("#accountType").onchange = () => {
+      const type = $("#accountType").value;
+      $("#regDepartment").placeholder = "PDN / PDN2 / PDN3 / MDN";
+      $("#registerFields").classList.toggle("hidden", !register);
+      $("#regRole").closest(".field").classList.toggle("hidden", !["STAFF","HR","MANAGEMENT","ADMIN"].includes(type));
+      $("#masterKey").closest(".field").classList.toggle("hidden", !["STAFF","HR","MANAGEMENT","ADMIN"].includes(type));
+    };
 
-function panel(title, content) {
-  return `<section style="background:white;border:1px solid #dce9df;border-radius:14px;padding:15px;margin:10px 0;color:#193c2b">
-    <h3>${title}</h3>${content}</section>`;
-}
-
-/* ---------------- STAFF LOGIN / REGISTRATION ---------------- */
-
-async function staffRegister(data) {
-  return api("/api/staff/register", "POST", data);
-}
-
-function bindStaffForms() {
-  const login = $("staffLoginForm");
-  if (login && !login.dataset.bound) {
-    login.dataset.bound = "1";
-    login.addEventListener("submit", async e => {
+    $("#authForm").onsubmit = async e => {
       e.preventDefault();
+      const type = $("#accountType").value;
+      const id = $("#loginId").value.trim();
+      const password = $("#loginPassword").value;
       try {
-        const result = await api("/api/staff/login", "POST", {
-          staff_id: $("staffLoginId").value.trim(),
-          password: $("staffLoginPassword").value
-        });
-
-        const staff = result.staff || result.user;
-        if (!staff) throw new Error("Server staff details return pannala.");
-
-        saveSession(STAFF_KEY, {
-          ...staff,
-          token: result.token || result.session_token || result.session || staff.token
-        });
-        localStorage.removeItem(PERSON_KEY);
-        showStaffPortal();
-        message("Welcome, " + (staff.name || staff.staff_id));
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  const register = $("staffRegisterForm");
-  if (register && !register.dataset.bound) {
-    register.dataset.bound = "1";
-    register.addEventListener("submit", async e => {
-      e.preventDefault();
-      const password = $("staffRegisterPassword").value;
-      if (password !== $("staffRegisterConfirmPassword").value) {
-        alert("Passwords do not match.");
-        return;
-      }
-
-      try {
-        const result = await staffRegister({
-          name: $("staffRegisterName").value.trim(),
-          staff_id: $("staffRegisterId").value.trim(),
-          mobile: $("staffRegisterMobile").value.trim(),
-          role: $("staffRegisterRole").value,
-          password,
-          confirm_password: $("staffRegisterConfirmPassword").value,
-          master_key: $("staffMasterKey").value
-        });
-        alert(result.message || "Registration completed.");
-        showOnly("staffLoginScreen");
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-}
-
-/* ---------------- EMPLOYEE / INTERN REGISTRATION ---------------- */
-
-function addRegistrationForms() {
-  [
-    { screen: "employeeLoginScreen", type: "EMPLOYEE", label: "Employee" },
-    { screen: "internLoginScreen", type: "INTERN", label: "Intern" }
-  ].forEach(cfg => {
-    const screen = $(cfg.screen);
-    if (!screen || $(cfg.type + "RegisterPanel")) return;
-
-    const box = document.createElement("div");
-    box.id = cfg.type + "RegisterPanel";
-    box.className = "panel";
-    box.innerHTML = `
-      <h3>${cfg.label} Self Registration</h3>
-      <p class="muted">Unmai details enter pannunga. ID unique-a irukkanum.</p>
-      <form id="${cfg.type}RegisterForm">
-        ${field(cfg.type + "RegId", cfg.type === "EMPLOYEE" ? "Employee ID" : "Intern ID")}
-        ${field(cfg.type + "RegName", "Full name")}
-        ${field(cfg.type + "RegMobile", "Mobile number", "tel")}
-        ${selectField(cfg.type + "RegDepartment", "Department", ["PDN", "PDN2", "PDN3", "MDN"])}
-        ${field(cfg.type + "RegDesignation", "Designation", "text", false)}
-        ${selectField(cfg.type + "RegShift", "Shift", ["SHIFT 1", "SHIFT 2", "SHIFT 3"])}
-        ${field(cfg.type + "RegRoom", "Room number", "text", false)}
-        ${field(cfg.type + "RegPassword", "Password (minimum 8 characters)", "password")}
-        ${field(cfg.type + "RegConfirm", "Confirm password", "password")}
-        <button class="btn full" type="submit">Register ${cfg.label}</button>
-      </form>`;
-    screen.appendChild(box);
-
-    const form = $(cfg.type + "RegisterForm");
-    form.addEventListener("submit", async e => {
-      e.preventDefault();
-
-      const password = $(cfg.type + "RegPassword").value;
-      if (password.length < 8) {
-        alert("Password minimum 8 characters irukkanum.");
-        return;
-      }
-      if (password !== $(cfg.type + "RegConfirm").value) {
-        alert("Passwords match aagala.");
-        return;
-      }
-
-      try {
-        const result = await api("/api/person/register", "POST", {
-          person_type: cfg.type,
-          person_id: $(cfg.type + "RegId").value.trim(),
-          name: $(cfg.type + "RegName").value.trim(),
-          mobile: $(cfg.type + "RegMobile").value.trim(),
-          department: $(cfg.type + "RegDepartment").value,
-          designation: $(cfg.type + "RegDesignation").value.trim(),
-          shift: $(cfg.type + "RegShift").value,
-          room: $(cfg.type + "RegRoom").value.trim(),
-          password
-        });
-        alert(result.message || "Registration completed. Ippo login pannunga.");
-        $(cfg.type + "RegForm").reset();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  });
-}
-
-function bindPersonForms() {
-  [
-    { form: "employeeLoginForm", type: "EMPLOYEE", id: "employeeLoginId", pw: "employeeLoginPassword" },
-    { form: "internLoginForm", type: "INTERN", id: "internLoginId", pw: "internLoginPassword" }
-  ].forEach(cfg => {
-    const form = $(cfg.form);
-    if (!form || form.dataset.bound) return;
-    form.dataset.bound = "1";
-
-    form.addEventListener("submit", async e => {
-      e.preventDefault();
-      try {
-        const result = await api("/api/person/login", "POST", {
-          person_type: cfg.type,
-          person_id: $(cfg.id).value.trim(),
-          password: $(cfg.pw).value
-        });
-
-        saveSession(PERSON_KEY, {
-          person_type: result.person_type || cfg.type,
-          person: result.person || result.user,
-          qr_token: result.qr_token,
-          token: result.token || result.session_token || result.session
-        });
-        localStorage.removeItem(STAFF_KEY);
-        showPersonPortal();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  });
-}
-
-/* ---------------- STAFF PORTAL ---------------- */
-
-function showStaffPortal() {
-  const staff = getStaff();
-  if (!staff) return showOnly("staffLoginScreen");
-
-  showOnly("staffPortalScreen");
-  ["portalStaffName", "portalInfoName"].forEach(id => {
-    if ($(id)) $(id).textContent = staff.name || "";
-  });
-  ["portalStaffRole", "portalInfoRole"].forEach(id => {
-    if ($(id)) $(id).textContent = staff.role || "";
-  });
-  ["portalStaffId", "portalInfoStaffId"].forEach(id => {
-    if ($(id)) $(id).textContent = staff.staff_id || "";
-  });
-
-  loadDashboard();
-}
-
-function staffLogout() {
-  localStorage.removeItem(STAFF_KEY);
-  showOnly("homeScreen");
-}
-
-function portalModule(name) {
-  const target = $("portalWorkspace");
-  if (!target) return;
-
-  target.innerHTML = `
-    ${btn("← Dashboard", "loadDashboard()", "#53665b")}
-    <h2>${escapeHTML(name)}</h2><div id="moduleContent">Loading...</div>`;
-
-  const actions = {
-    "Employee Management": renderPeople,
-    "Room Management": renderRooms,
-    "Attendance": renderAttendance,
-    "Leave Management": renderRequests,
-    "Cab Management": renderCab,
-    "Food Management": renderFood,
-    "Reports": renderReports
-  };
-  (actions[name] || (() => {
-    $("moduleContent").textContent = "Module not available.";
-  }))();
-}
-
-async function loadDashboard() {
-  const target = $("portalWorkspace");
-  if (!target) return;
-
-  target.innerHTML = "<p>Loading dashboard...</p>";
-  try {
-    const d = await api("/api/dashboard");
-    const stats = [
-      ["Employees", d.employees],
-      ["Interns", d.interns],
-      ["Inside Hostel", d.in_hostel],
-      ["Out / Leave", d.out_or_leave],
-      ["Vacated", d.vacated]
-    ];
-
-    target.innerHTML = `
-      <h2>Hostel Overview</h2>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
-        ${stats.map(s => `<div style="background:#eaf7ef;border-radius:12px;padding:14px">
-          <div>${escapeHTML(s[0])}</div><strong style="font-size:24px">${escapeHTML(s[1] ?? 0)}</strong>
-        </div>`).join("")}
-      </div>
-      <p>Choose a management module above.</p>`;
-  } catch (err) {
-    target.innerHTML = `<p>${escapeHTML(err.message)}</p>${btn("Retry", "loadDashboard()")}`;
-  }
-}
-
-/* ---------------- PEOPLE MANAGEMENT ---------------- */
-
-async function renderPeople() {
-  const c = $("moduleContent");
-  c.innerHTML = `
-    ${selectField("peopleType", "Person type", ["ALL", "EMPLOYEE", "INTERN"])}
-    ${selectField("peopleStatus", "Status", ["ALL", "ACTIVE", "RESIGNED"])}
-    ${btn("Load People", "loadPeople()")}
-    <div id="peopleList"></div>`;
-  await loadPeople();
-}
-
-async function loadPeople() {
-  const list = $("peopleList");
-  if (!list) return;
-  list.textContent = "Loading...";
-  try {
-    const type = $("peopleType")?.value || "ALL";
-    const status = $("peopleStatus")?.value || "ALL";
-    const data = await api(`/api/people?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
-    const people = data.people || [];
-
-    list.innerHTML = people.length ? people.map(p => `
-      <article style="border:1px solid #dce9df;padding:12px;border-radius:12px;margin:9px 0">
-        <strong>${escapeHTML(p.name)}</strong>
-        <p>${escapeHTML(p.person_id)} · ${escapeHTML(p.person_type)}</p>
-        <p>${escapeHTML(p.department)} · ${escapeHTML(p.shift || "-")}</p>
-        <p>Room: ${escapeHTML(p.room || "-")}</p>
-        <p>Hostel: ${escapeHTML(p.hostel_status)} · ${escapeHTML(p.status)}</p>
-        ${btn("Edit", `editPerson('${escapeHTML(p.person_type)}','${escapeHTML(p.person_id)}')`)}
-        ${btn("IN", `quickStatus('${escapeHTML(p.person_type)}','${escapeHTML(p.person_id)}','IN')`)}
-        ${btn("OUT / LEAVE", `quickStatus('${escapeHTML(p.person_type)}','${escapeHTML(p.person_id)}','OUT/LEAVE')`, "#b87818")}
-        ${btn("VACATED", `quickStatus('${escapeHTML(p.person_type)}','${escapeHTML(p.person_id)}','VACATED')`, "#b33c3c")}
-        ${btn("Mark Resigned", `deletePerson('${escapeHTML(p.person_type)}','${escapeHTML(p.person_id)}')`, "#53665b")}
-      </article>`).join("") : "<p>No records found.</p>";
-  } catch (err) {
-    list.textContent = err.message;
-  }
-}
-
-async function editPerson(type, id) {
-  const name = prompt("Full name:");
-  if (name === null) return;
-  const department = prompt("Department: PDN, PDN2, PDN3, MDN");
-  if (department === null) return;
-  const shift = prompt("Shift: SHIFT 1, SHIFT 2, SHIFT 3");
-  if (shift === null) return;
-  const room = prompt("Room number:");
-  if (room === null) return;
-  const designation = prompt("Designation:");
-  if (designation === null) return;
-  const mobile = prompt("Mobile number:");
-  if (mobile === null) return;
-
-  try {
-    const result = await api("/api/people/update", "POST", {
-      person_type: type, person_id: id, name,
-      department: department.toUpperCase(),
-      shift: shift.toUpperCase(), room, designation, mobile
-    });
-    alert(result.message || "Updated.");
-    loadPeople();
-  } catch (err) { alert(err.message); }
-}
-
-async function deletePerson(type, id) {
-  if (!confirm(`${id} account-ai resigned status-ku maathava?`)) return;
-  try {
-    const result = await api("/api/people/delete", "POST", {
-      person_type: type, person_id: id
-    });
-    alert(result.message || "Updated.");
-    loadPeople();
-  } catch (err) { alert(err.message); }
-}
-
-async function quickStatus(type, id, status) {
-  try {
-    const result = await api("/api/hostel/status", "POST", {
-      person_type: type, person_id: id, hostel_status: status
-    });
-    alert(result.message || "Hostel status updated.");
-    loadPeople();
-  } catch (err) { alert(err.message); }
-}
-
-/* ---------------- ROOMS ---------------- */
-
-async function renderRooms() {
-  $("moduleContent").innerHTML = `
-    ${field("roomNumber", "Room number, e.g. B1")}
-    ${selectField("roomBlock", "Block", ["A", "B", "C", "D"])}
-    ${btn("Save Room", "saveRoom()")}
-    ${btn("Refresh", "loadRooms()", "#53665b")}
-    <div id="roomList"></div>`;
-  await loadRooms();
-}
-
-async function saveRoom() {
-  try {
-    const result = await api("/api/rooms", "POST", {
-      room_number: $("roomNumber").value.trim(),
-      block: $("roomBlock").value
-    });
-    alert(result.message || "Room saved.");
-    loadRooms();
-  } catch (err) { alert(err.message); }
-}
-
-async function loadRooms() {
-  if (!$("roomList")) return;
-  try {
-    const data = await api("/api/rooms");
-    $("roomList").innerHTML = (data.rooms || []).map(r => `
-      <p style="padding:10px;border-bottom:1px solid #ddd">
-        <strong>${escapeHTML(r.room_number)}</strong> · Block ${escapeHTML(r.block)}
-        · Occupied: ${escapeHTML(r.occupied ?? 0)}
-      </p>`).join("") || "<p>No rooms found.</p>";
-  } catch (err) { $("roomList").textContent = err.message; }
-}
-
-/* ---------------- ATTENDANCE ---------------- */
-
-async function renderAttendance() {
-  $("moduleContent").innerHTML = `
-    ${field("attDate", "Date (YYYY-MM-DD)", "date")}
-    ${selectField("attShift", "Shift", ["SHIFT 1", "SHIFT 2", "SHIFT 3"])}
-    ${btn("Load People", "loadAttendancePeople()")}
-    <div id="attendanceList"></div>`;
-  $("attDate").value = new Date().toLocaleDateString("en-CA");
-}
-
-async function loadAttendancePeople() {
-  const list = $("attendanceList");
-  try {
-    const data = await api("/api/people?type=ALL&status=ACTIVE");
-    const people = data.people || [];
-    list.innerHTML = people.map((p, i) => `
-      <div style="border-bottom:1px solid #ddd;padding:10px 0">
-        <strong>${escapeHTML(p.name)}</strong> (${escapeHTML(p.person_id)})
-        ${selectField(`attStatus${i}`, "Attendance", ["PRESENT", "ABSENT", "N/A"])}
-        ${btn("Save", `saveAttendance(${i},'${escapeHTML(p.person_type)}','${escapeHTML(p.person_id)}')`)}
-      </div>`).join("");
-    window._attendancePeople = people;
-  } catch (err) { list.textContent = err.message; }
-}
-
-async function saveAttendance(index, type, id) {
-  const p = window._attendancePeople?.[index];
-  if (!p) return;
-  try {
-    const result = await api("/api/attendance", "POST", {
-      person_type: type,
-      person_id: id,
-      attendance_date: $("attDate").value,
-      shift: $("attShift").value,
-      attendance_status: $("attStatus" + index).value
-    });
-    alert(result.message || "Attendance saved.");
-  } catch (err) { alert(err.message); }
-}
-
-/* ---------------- CAB: HR CAMERA SCANNER ---------------- */
-
-async function renderCab() {
-  $("moduleContent").innerHTML = `
-    <p>Employee / Intern personal QR-ai HR scan pannunga.</p>
-    ${selectField("cabShift", "Shift", ["SHIFT 1", "SHIFT 2", "SHIFT 3"])}
-    ${btn("Start QR Scanner", "startScanner('cab')")}
-    ${btn("Stop Scanner", "stopScanner()", "#53665b")}
-    <video id="scanVideo" playsinline style="width:100%;max-height:300px;background:#111;border-radius:12px"></video>
-    ${field("cabManualToken", "Manual QR token (camera work aagala na)", "text", false)}
-    ${btn("Submit Cab Scan", "submitCabScan()")}
-    ${btn("Refresh Today's Cab Entries", "loadCab()", "#53665b")}
-    <div id="cabList"></div>`;
-  await loadCab();
-}
-
-let scannerStream = null;
-let scannerTimer = null;
-let scannerMode = "";
-
-async function startScanner(mode) {
-  stopScanner();
-  if (!navigator.mediaDevices?.getUserMedia) {
-    alert("Camera access indha browser-la support aagala. Manual token use pannunga.");
-    return;
-  }
-  try {
-    scannerMode = mode;
-    scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" }
-    });
-    const video = $("scanVideo");
-    if (!video) return stopScanner();
-    video.srcObject = scannerStream;
-    await video.play();
-
-    if (!("BarcodeDetector" in window)) {
-      alert("QR camera detection indha browser-la support aagala. Manual token option use pannunga.");
-      return;
-    }
-    const detector = new BarcodeDetector({ formats: ["qr_code"] });
-    scannerTimer = setInterval(async () => {
-      if (!video || video.readyState < 2) return;
-      try {
-        const codes = await detector.detect(video);
-        if (codes.length && codes[0].rawValue) {
-          const token = codes[0].rawValue.trim();
-          if (scannerMode === "cab" && $("cabManualToken")) $("cabManualToken").value = token;
-          if (scannerMode === "food" && $("foodManualToken")) $("foodManualToken").value = token;
-          stopScanner();
-          message("QR read aayiduchu. Submit button press pannunga.");
+        if (register) {
+          const isStaff = ["STAFF","HR","MANAGEMENT","ADMIN"].includes(type);
+          const payload = {
+            type: isStaff ? $("#regRole").value : type,
+            id, password,
+            name: $("#regName").value.trim(),
+            mobile: $("#regMobile").value.trim(),
+            department: $("#regDepartment").value.trim().toUpperCase(),
+            designation: $("#regDesignation").value.trim(),
+            shift: $("#regShift").value.trim().toUpperCase(),
+            room: $("#regRoom").value.trim()
+          };
+          await api("/api/register", {
+            method: "POST",
+            headers: { "X-Master-Key": $("#masterKey").value },
+            body: JSON.stringify(payload)
+          });
+          loginScreen(false);
+          say("Account created. Login using your ID and password.");
+          return;
         }
-      } catch (_) {}
-    }, 700);
-  } catch (err) {
-    alert("Camera open aagala: " + err.message);
+
+        const result = await api("/api/login", {
+          method: "POST", body: JSON.stringify({ type, id, password })
+        });
+        token = result.token;
+        user = result.user;
+        localStorage.setItem("thh_token", token);
+        await enterPortal();
+      } catch (err) { say(err.message, true); }
+    };
+    $("#accountType").dispatchEvent(new Event("change"));
   }
-}
 
-function stopScanner() {
-  if (scannerTimer) clearInterval(scannerTimer);
-  scannerTimer = null;
-  if (scannerStream) scannerStream.getTracks().forEach(t => t.stop());
-  scannerStream = null;
-  const video = $("scanVideo");
-  if (video) video.srcObject = null;
-}
-
-async function submitCabScan() {
-  const qr = $("cabManualToken")?.value.trim();
-  if (!qr) return alert("QR scan pannunga illa token enter pannunga.");
-  try {
-    const result = await api("/api/cab/scan", "POST", {
-      qr_token: qr,
-      shift: $("cabShift").value
-    });
-    alert(result.message || "Cab entry recorded.");
-    $("cabManualToken").value = "";
-    loadCab();
-  } catch (err) { alert(err.message); }
-}
-
-async function loadCab() {
-  const list = $("cabList");
-  if (!list) return;
-  try {
-    const data = await api("/api/cab");
-    list.innerHTML = (data.entries || []).map(e => `
-      <p style="border-bottom:1px solid #ddd;padding:8px">
-        ${escapeHTML(e.entry_time)} · ${escapeHTML(e.name)} ·
-        ${escapeHTML(e.person_id)} · ${escapeHTML(e.department)} ·
-        ${escapeHTML(e.shift || "-")} · Room ${escapeHTML(e.room || "-")}
-      </p>`).join("") || "<p>No cab entries today.</p>";
-  } catch (err) { list.textContent = err.message; }
-}
-
-/* ---------------- FOOD QR DISPLAY / REPORT ---------------- */
-
-async function renderFood() {
-  $("moduleContent").innerHTML = `
-    <p>HR indha Food QR-ai display pannunga. Employee / Intern avanga portal-la scan pannuvaanga.</p>
-    ${btn("Generate / Load Food QR", "loadFoodQR()")}
-    <div id="foodQrDisplay"></div>
-    <hr>
-    <h3>Food Entries</h3>
-    ${btn("Refresh Food Entries", "loadFood()", "#53665b")}
-    <div id="foodList"></div>`;
-  await loadFoodQR();
-  await loadFood();
-}
-
-async function loadFoodQR() {
-  const target = $("foodQrDisplay");
-  if (!target) return;
-  target.textContent = "Loading food QR...";
-  try {
-    const data = await api("/api/food/qr");
-    const token = data.food_token || data.qr_token || data.token;
-    if (!token) {
-      target.innerHTML = "<p>Worker food QR token return pannala. Worker response check thevai.</p>";
-      return;
+  async function enterPortal() {
+    try {
+      const result = await api("/api/me");
+      user = result.user || user;
+      if (user.kind === "STAFF") await renderManager();
+      else await renderPerson(result);
+    } catch (err) {
+      localStorage.removeItem("thh_token");
+      token = "";
+      user = null;
+      loginScreen();
+      say(err.message, true);
     }
-    window._texmoFoodToken = token;
-    target.innerHTML = `
-      <div style="text-align:center;padding:12px;border:1px solid #ddd;border-radius:12px">
-        <p><strong>FOOD SCAN QR</strong></p>
-        <img alt="Food QR code"
-          src="https://quickchart.io/qr?size=240&text=${encodeURIComponent(token)}"
-          style="width:240px;max-width:100%;height:auto">
-        <p>Breakfast / Lunch / Dinner selection employee portal-la varum.</p>
-      </div>`;
-  } catch (err) {
-    target.textContent = err.message;
   }
-}
 
-async function loadFood() {
-  const list = $("foodList");
-  if (!list) return;
-  try {
-    const data = await api("/api/food");
-    list.innerHTML = (data.entries || []).map(e => `
-      <p style="border-bottom:1px solid #ddd;padding:8px">
-        ${escapeHTML(e.entry_date)} ${escapeHTML(e.entry_time)} ·
-        ${escapeHTML(e.name)} (${escapeHTML(e.person_id)}) ·
-        ${escapeHTML(e.meal_type)}
-      </p>`).join("") || "<p>No food entries found.</p>";
-  } catch (err) { list.textContent = err.message; }
-}
+  function header() {
+    return `<header class="top"><div><div class="brand">TEXMO HOSTEL HUB</div>
+      <div class="sub">${esc(user?.name || "")} · ${esc(user?.role || user?.person_type || "")}</div></div>
+      <button id="logout">Logout</button></header><div class="wrap"><div id="notice" class="hidden"></div>
+      <nav class="nav" id="nav"></nav><main id="page"></main></div><div class="foot">TEXMO HOSTEL HUB · Staff and Hostel Portal</div>`;
+  }
 
-/* ---------------- HR REQUESTS ---------------- */
-
-async function renderRequests() {
-  $("moduleContent").innerHTML = `
-    <p>Employee / Intern leave, temporary OUT, return, vacate requests inga review pannalaam.</p>
-    ${btn("Load HR Requests", "loadRequests()")}
-    <div id="requestList"></div>`;
-  await loadRequests();
-}
-
-async function loadRequests() {
-  const list = $("requestList");
-  if (!list) return;
-  try {
-    const data = await api("/api/requests");
-    const requests = data.requests || [];
-    list.innerHTML = requests.map(r => `
-      <article style="border:1px solid #dce9df;border-radius:12px;padding:12px;margin:8px 0">
-        <strong>${escapeHTML(r.name || r.person_id || "Request")}</strong>
-        <p>ID: ${escapeHTML(r.person_id)} · ${escapeHTML(r.person_type)}</p>
-        <p>Type: ${escapeHTML(r.request_type)} · Status: ${escapeHTML(r.status)}</p>
-        <p>${escapeHTML(r.remarks || r.reason || "")}</p>
-        ${String(r.status || "").toUpperCase() === "PENDING" ? `
-          ${btn("Approve", `reviewRequest(${Number(r.id)},'APPROVED')`)}
-          ${btn("Reject", `reviewRequest(${Number(r.id)},'REJECTED')`, "#b33c3c")}
-        ` : ""}
-      </article>`).join("") || "<p>No requests found.</p>";
-  } catch (err) { list.textContent = err.message; }
-}
-
-async function reviewRequest(id, status) {
-  const remarks = prompt("HR remarks (optional):") || "";
-  try {
-    const result = await api("/api/requests/review", "POST", {
-      request_id: id,
-      status,
-      remarks
+  function setShell(tabs) {
+    root(header());
+    $("#logout").onclick = logout;
+    $("#nav").innerHTML = tabs.map(t =>
+      `<button data-tab="${esc(t)}" class="${t === activeTab ? "on" : ""}">${esc(t)}</button>`
+    ).join("");
+    $("#nav").querySelectorAll("button").forEach(b => b.onclick = () => {
+      activeTab = b.dataset.tab;
+      $("#nav").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+      renderTab();
     });
-    alert(result.message || "Request reviewed.");
-    loadRequests();
-  } catch (err) { alert(err.message); }
-}
-
-/* ---------------- REPORTS / CSV ---------------- */
-
-async function renderReports() {
-  $("moduleContent").innerHTML = `
-    ${btn("Generate Report", "loadReports()")}
-    ${btn("Export People CSV", "exportPeopleCSV()", "#53665b")}
-    <div id="reportList"></div>`;
-  await loadReports();
-}
-
-async function loadReports() {
-  const list = $("reportList");
-  if (!list) return;
-  try {
-    const d = await api("/api/reports");
-    list.innerHTML = `
-      <h3>Cab Today: ${escapeHTML(d.cab_today ?? 0)}</h3>
-      <h3>Employees by Department</h3>
-      ${(d.employee_departments || []).map(x =>
-        `<p>${escapeHTML(x.department)}: ${escapeHTML(x.total)}</p>`).join("")}
-      <h3>Food Today</h3>
-      ${(d.food_today || []).map(x =>
-        `<p>${escapeHTML(x.meal_type)}: ${escapeHTML(x.total)}</p>`).join("")}
-      <h3>Attendance Today</h3>
-      ${(d.attendance_today || []).map(x =>
-        `<p>${escapeHTML(x.attendance_status)}: ${escapeHTML(x.total)}</p>`).join("")}`;
-  } catch (err) { list.textContent = err.message; }
-}
-
-async function exportPeopleCSV() {
-  try {
-    const data = await api("/api/people?type=ALL&status=ALL");
-    const cols = [
-      "person_type", "person_id", "name", "department", "designation",
-      "mobile", "shift", "room", "hostel_status", "status"
-    ];
-    const csv = [
-      cols.join(","),
-      ...(data.people || []).map(p => cols.map(c =>
-        `"${String(p[c] ?? "").replace(/"/g, '""')}"`
-      ).join(","))
-    ].join("\r\n");
-
-    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;"
-    }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "texmo-hostel-people.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (err) { alert(err.message); }
-}
-
-/* ---------------- EMPLOYEE / INTERN PORTAL: FOUR TABS ---------------- */
-
-function showPersonPortal() {
-  const session = getPerson();
-  if (!session?.person) return showOnly("homeScreen");
-
-  let portal = $("personPortalScreen");
-  if (!portal) {
-    portal = document.createElement("section");
-    portal.id = "personPortalScreen";
-    portal.className = "screen";
-    portal.style.cssText = "max-width:760px;margin:18px auto;padding:12px";
-    document.querySelector("main.container")?.appendChild(portal);
   }
 
-  const p = session.person;
-  portal.innerHTML = `
-    <div class="panel">
-      <span class="badge">${escapeHTML(session.person_type)} PORTAL</span>
-      <h2>Welcome, ${escapeHTML(p.name)}</h2>
-      <p class="muted">ID: ${escapeHTML(p.person_id)}</p>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:15px 0">
-        <button class="btn" onclick="personTab('profile')">👤 Profile</button>
-        <button class="btn" onclick="personTab('qr')">▦ My QR</button>
-        <button class="btn" onclick="personTab('food')">🍽️ Food Scanner</button>
-        <button class="btn" onclick="personTab('requests')">📝 Requests to HR</button>
+  function logout() {
+    stopCamera();
+    token = ""; user = null; activeTab = "Dashboard";
+    localStorage.removeItem("thh_token");
+    loginScreen();
+  }
+  window.logout = logout;
+
+  async function renderManager() {
+    activeTab = "Dashboard";
+    setShell(["Dashboard","People","Rooms","Food QR","Cab Scanner","Attendance","Requests","Reports"]);
+    await renderTab();
+  }
+
+  async function renderPerson(profile) {
+    activeTab = "Profile";
+    setShell(["Profile","My QR","Food Scanner","Requests to HR"]);
+    await renderTab(profile);
+  }
+
+  async function renderTab(profile) {
+    stopCamera();
+    const page = $("#page");
+    if (!page) return;
+    page.innerHTML = `<section class="card">Loading...</section>`;
+    try {
+      if (user.kind === "STAFF") {
+        switch (activeTab) {
+          case "Dashboard": return await dashboard();
+          case "People": return await peoplePage();
+          case "Rooms": return await roomsPage();
+          case "Food QR": return await foodQRPage();
+          case "Cab Scanner": return cabPage();
+          case "Attendance": return await attendancePage();
+          case "Requests": return await requestsPage();
+          case "Reports": return await reportsPage();
+        }
+      } else {
+        switch (activeTab) {
+          case "Profile": return await profilePage(profile);
+          case "My QR": return await myQRPage(profile);
+          case "Food Scanner": return foodScanPage();
+          case "Requests to HR": return await personRequestsPage();
+        }
+      }
+    } catch (err) {
+      page.innerHTML = `<section class="card"><div class="msg error">${esc(err.message)}</div><button onclick="location.reload()">Reload</button></section>`;
+    }
+  }
+
+  async function dashboard() {
+    const d = await api("/api/dashboard");
+    const people = [...d.employees, ...d.interns];
+    $("#page").innerHTML = `
+      <h2 class="title">Operations Dashboard</h2>
+      <div class="grid">
+        ${stat("Employees", d.employees.length)}${stat("Interns", d.interns.length)}
+        ${stat("Rooms", d.rooms.length)}${stat("Pending HR", d.pending_requests)}
+        ${stat("Food scans today", d.food_today)}${stat("Cab entries today", d.cab_today)}
+        ${stat("Attendance entries today", d.attendance_today)}
+        ${stat("Currently IN", people.filter(p=>p.hostel_status==="IN"&&p.status==="ACTIVE").length)}
       </div>
-      <div id="personTabContent"></div>
-      ${btn("Logout", "personLogout()", "#b33c3c")}
-    </div>`;
-  showOnly("personPortalScreen");
-  personTab("profile");
-}
-
-function personTab(tab) {
-  const s = getPerson();
-  if (!s?.person) return;
-  const p = s.person;
-  const target = $("personTabContent");
-  if (!target) return;
-
-  if (tab === "profile") {
-    target.innerHTML = `
-      <h3>My Profile</h3>
-      ${["name", "person_id", "department", "designation", "mobile", "shift", "room", "hostel_status"].map(k =>
-        `<div style="padding:9px;border-bottom:1px solid #eee"><strong>${escapeHTML(k.replace("_", " "))}:</strong> ${escapeHTML(p[k] || "-")}</div>`
-      ).join("")}
-      ${selectField("myShift", "My Shift", ["SHIFT 1", "SHIFT 2", "SHIFT 3"])}
-      ${btn("Update Shift", "updateMyShift()")}
-    `;
-    $("myShift").value = p.shift || "SHIFT 1";
-  }
-
-  if (tab === "qr") {
-    const token = s.qr_token || p.qr_token || "";
-    target.innerHTML = `
-      <h3>My Personal QR</h3>
-      ${token ? `<img alt="Personal QR code"
-        src="https://quickchart.io/qr?size=240&text=${encodeURIComponent(token)}"
-        style="display:block;width:240px;max-width:100%;margin:10px auto">`
-        : "<p>Personal QR token login response-la kidaikkala. Worker response check thevai.</p>"}
-      <p class="muted">Cab entry-kku HR indha QR-ai scan pannuvaanga.</p>`;
-  }
-
-  if (tab === "food") {
-    target.innerHTML = `
-      <h3>Food Scanner</h3>
-      <p>HR display pannura food QR-ai scan pannunga.</p>
-      ${selectField("foodMealChoice", "Meal", ["BREAKFAST", "LUNCH", "DINNER"])}
-      ${btn("Start Food QR Scanner", "startScanner('food')")}
-      ${btn("Stop Scanner", "stopScanner()", "#53665b")}
-      <video id="scanVideo" playsinline style="width:100%;max-height:300px;background:#111;border-radius:12px"></video>
-      ${field("foodManualToken", "Scanned food QR token", "text", false)}
-      ${btn("Submit Food Entry", "submitFoodScan()")}`;
-  }
-
-  if (tab === "requests") {
-    target.innerHTML = `
-      <h3>Requests to HR</h3>
-      ${selectField("requestType", "Request type", ["LEAVE", "TEMPORARY_OUT", "RETURN", "VACATE"])}
-      ${field("requestStart", "From date", "date", false)}
-      ${field("requestEnd", "To date", "date", false)}
-      ${field("requestReason", "Reason / remarks", "text", true)}
-      ${btn("Submit Request", "submitRequest()")}
-      ${btn("My Requests", "loadMyRequests()", "#53665b")}
-      <div id="myRequestList"></div>`;
-  }
-}
-
-async function updateMyShift() {
-  const s = getPerson();
-  if (!s?.person) return;
-  try {
-    const shift = $("myShift").value;
-    const result = await api("/api/shift/update", "POST", {
-      person_type: s.person_type,
-      person_id: s.person.person_id,
-      shift
+      <section class="card" style="margin-top:14px"><h3 class="title">Quick access</h3>
+      <div class="actions">${["People","Rooms","Food QR","Cab Scanner","Attendance","Requests","Reports"].map(t=>`<button class="secondary" data-go="${t}">${t}</button>`).join("")}</div>
+      <p class="muted">Employee and Intern records · Hostel status · Meals · Cab · Shift attendance · HR approvals</p></section>`;
+    $("#page").querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+      activeTab = b.dataset.go;
+      $("#nav").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.tab === activeTab));
+      renderTab();
     });
-    s.person.shift = shift;
-    saveSession(PERSON_KEY, s);
-    alert(result.message || "Shift updated.");
-    showPersonPortal();
-  } catch (err) { alert(err.message); }
-}
+  }
 
-async function submitFoodScan() {
-  const s = getPerson();
-  const foodToken = $("foodManualToken")?.value.trim();
-  if (!foodToken) return alert("Food QR-ai scan pannunga.");
+  function stat(label, value) {
+    return `<section class="card"><div class="muted">${esc(label)}</div><div class="stat">${esc(value)}</div></section>`;
+  }
 
-  try {
-    const result = await api("/api/food/scan", "POST", {
-      food_token: foodToken,
-      meal_type: $("foodMealChoice").value
-    });
-    alert(result.message || "Food entry recorded.");
-    $("foodManualToken").value = "";
-  } catch (err) { alert(err.message); }
-}
+  async function peoplePage() {
+    cachedPeople = await api("/api/people");
+    const all = [
+      ...cachedPeople.employees.map(p=>({...p,person_type:"EMPLOYEE"})),
+      ...cachedPeople.interns.map(p=>({...p,person_type:"INTERN"}))
+    ];
+    $("#page").innerHTML = `<h2 class="title">People Management</h2>
+      <section class="card"><div class="formgrid">
+      ${selectField("Person type","filterType",["ALL","EMPLOYEE","INTERN"])}
+      ${selectField("Status","filterStatus",["ALL","ACTIVE","RESIGNED"])}
+      </div><div class="field"><label>Search name / ID / department</label><input id="peopleSearch" placeholder="Search records"></div>
+      <div class="tablewrap"><table><thead><tr><th>Type / ID</th><th>Name</th><th>Department</th><th>Room / Shift</th><th>Hostel status</th><th>Record status</th><th>Action</th></tr></thead><tbody id="peopleRows"></tbody></table></div>
+      </section>`;
+    const draw = () => {
+      const q = $("#peopleSearch").value.toLowerCase();
+      const type = $("#filterType").value, status = $("#filterStatus").value;
+      $("#peopleRows").innerHTML = all.filter(p =>
+        (type==="ALL"||p.person_type===type) && (status==="ALL"||p.status===status) &&
+        [p.id,p.name,p.department,p.room].join(" ").toLowerCase().includes(q)
+      ).map(p=>`<tr><td>${esc(p.person_type)}<br>${esc(p.id)}</td><td>${esc(p.name)}<br>${esc(p.mobile)}</td>
+      <td>${esc(p.department)}</td><td>${esc(p.room)}<br>${esc(p.shift)}</td>
+      <td>${esc(p.hostel_status)}</td><td>${esc(p.status)}</td>
+      <td><button class="small" data-edit="${esc(p.person_type)}|${esc(p.id)}">Edit</button>
+      <button class="small secondary" data-resign="${esc(p.person_type)}|${esc(p.id)}">Resign</button></td></tr>`).join("") || `<tr><td colspan="7">No records found.</td></tr>`;
+      $("#peopleRows").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editPerson(...b.dataset.edit.split("|")));
+      $("#peopleRows").querySelectorAll("[data-resign]").forEach(b=>b.onclick=()=>resignPerson(...b.dataset.resign.split("|")));
+    };
+    $("#peopleSearch").oninput = draw; $("#filterType").onchange = draw; $("#filterStatus").onchange = draw; draw();
+    $("#page").insertAdjacentHTML("beforeend", `<section class="card" style="margin-top:14px"><h3 class="title">Download records</h3><div class="actions">
+      <button data-export="employees">Employees CSV</button><button data-export="interns">Interns CSV</button><button data-export="requests">Requests CSV</button>
+      </div></section>`);
+    $("#page").querySelectorAll("[data-export]").forEach(b=>b.onclick=()=>exportCSV(b.dataset.export));
+  }
 
-async function submitRequest() {
-  const s = getPerson();
-  if (!s?.person) return;
-  try {
-    const result = await api("/api/requests", "POST", {
-      person_type: s.person_type,
-      person_id: s.person.person_id,
-      request_type: $("requestType").value,
-      start_date: $("requestStart").value,
-      end_date: $("requestEnd").value,
-      remarks: $("requestReason").value.trim()
-    });
-    alert(result.message || "Request sent to HR.");
-    loadMyRequests();
-  } catch (err) { alert(err.message); }
-}
+  async function editPerson(type, id) {
+    const list = type === "INTERN" ? cachedPeople.interns : cachedPeople.employees;
+    const p = list.find(x=>x.id===id);
+    if (!p) return;
+    $("#page").insertAdjacentHTML("afterbegin", `<section class="card" id="editBox"><h3 class="title">Edit ${esc(p.name)}</h3>
+      <form id="editForm"><div class="formgrid">
+      ${field("Name","eName","text",p.name,true)}${field("Mobile","eMobile","tel",p.mobile,true)}
+      ${selectField("Department","eDept",["PDN","PDN2","PDN3","MDN"],p.department)}
+      ${field("Designation","eDesignation","text",p.designation)}
+      ${selectField("Shift","eShift",["","SHIFT 1","SHIFT 2","SHIFT 3"],p.shift)}
+      ${field("Room","eRoom","text",p.room)}
+      ${selectField("Hostel status","eHostel",["IN","OUT/LEAVE","VACATED"],p.hostel_status)}
+      ${selectField("Record status","eStatus",["ACTIVE","RESIGNED"],p.status)}
+      ${field("New password (optional)","ePassword","password")}
+      </div><div class="actions"><button>Save changes</button><button type="button" class="secondary" id="cancelEdit">Cancel</button></div></form></section>`);
+    $("#cancelEdit").onclick=()=>$("#editBox").remove();
+    $("#editForm").onsubmit=async e=>{
+      e.preventDefault();
+      try{
+        const body={person_type:type,person_id:id,name:$("#eName").value,mobile:$("#eMobile").value,department:$("#eDept").value,designation:$("#eDesignation").value,shift:$("#eShift").value,room:$("#eRoom").value,hostel_status:$("#eHostel").value,status:$("#eStatus").value,password:$("#ePassword").value};
+        await api("/api/people/update",{method:"POST",body:JSON.stringify(body)});
+        say("Record updated."); await peoplePage();
+      }catch(err){say(err.message,true);}
+    };
+    $("#editBox").scrollIntoView({behavior:"smooth"});
+  }
 
-async function loadMyRequests() {
-  const target = $("myRequestList");
-  if (!target) return;
-  try {
-    const data = await api("/api/requests");
-    const s = getPerson();
-    const mine = (data.requests || []).filter(r =>
-      r.person_id === s?.person?.person_id &&
-      r.person_type === s?.person_type
-    );
-    target.innerHTML = mine.map(r => `
-      <p style="padding:9px;border-bottom:1px solid #ddd">
-        ${escapeHTML(r.request_type)} · ${escapeHTML(r.status)} ·
-        ${escapeHTML(r.remarks || "")}
-      </p>`).join("") || "<p>Innum requests illa.</p>";
-  } catch (err) { target.textContent = err.message; }
-}
+  async function resignPerson(type,id) {
+    if(!confirm(`Mark ${id} as RESIGNED? Historical data will remain.`)) return;
+    try{await api("/api/people/delete",{method:"POST",body:JSON.stringify({person_type:type,person_id:id})});say("Record marked RESIGNED.");await peoplePage();}
+    catch(e){say(e.message,true);}
+  }
 
-function personLogout() {
-  stopScanner();
-  localStorage.removeItem(PERSON_KEY);
-  showOnly("homeScreen");
-}
+  async function roomsPage() {
+    const d=await api("/api/rooms");
+    $("#page").innerHTML=`<h2 class="title">Rooms</h2><section class="card"><p class="muted">Room occupancy is not restricted to a fixed bed count.</p>
+    <div class="tablewrap"><table><thead><tr><th>Room</th><th>Block</th><th>Occupants currently IN</th><th>Room status</th><th>Action</th></tr></thead><tbody>
+    ${d.rooms.map(r=>{const people=[...cachedPeople.employees,...cachedPeople.interns];const count=people.filter(p=>p.room===r.room_number&&p.hostel_status==="IN"&&p.status==="ACTIVE").length;return `<tr><td>${esc(r.room_number)}</td><td>${esc(r.block)}</td><td>${count}</td><td>${esc(r.status)}</td><td><button class="small" data-room="${esc(r.room_number)}" data-status="${esc(r.status)}">Toggle status</button></td></tr>`}).join("")}
+    </tbody></table></div></section>`;
+    $("#page").querySelectorAll("[data-room]").forEach(b=>b.onclick=async()=>{try{await api("/api/rooms/update",{method:"POST",body:JSON.stringify({room_number:b.dataset.room,status:b.dataset.status==="ACTIVE"?"INACTIVE":"ACTIVE"})});await roomsPage();}catch(e){say(e.message,true);}});
+  }
 
-/* ---------------- STARTUP ---------------- */
+  async function foodQRPage() {
+    const d=await api("/api/food/qr");
+    $("#page").innerHTML=`<h2 class="title">Food QR</h2><section class="card">
+      <p>Employees and Interns scan this QR from their Food Scanner tab, then select their meal.</p>
+      <img class="qr" alt="Food QR code" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(d.qr_token)}">
+      <p class="muted">Keep this QR inside the authorized food counter. The token is active until disabled in the database.</p>
+      <div class="actions"><button id="copyFood" class="secondary">Copy food QR token</button><button id="foodRefresh">Refresh</button></div></section>`;
+    $("#copyFood").onclick=()=>copyText(d.qr_token);
+    $("#foodRefresh").onclick=()=>foodQRPage();
+  }
 
-document.addEventListener("DOMContentLoaded", () => {
-  bindStaffForms();
-  bindPersonForms();
-  addRegistrationForms();
+  function cabPage() {
+    $("#page").innerHTML=`<h2 class="title">Cab Scanner</h2><section class="card">
+      <p>Scan an Employee/Intern My QR code to save name, ID, department, shift, room, date and time.</p>
+      <div class="actions"><button id="startCab">Start camera</button><button class="secondary" id="stopCab">Stop camera</button></div>
+      <video id="camera" autoplay playsinline class="hidden"></video><div id="scanStatus" class="msg">Camera not started.</div>
+      <div class="field"><label>Or enter QR token manually</label><input id="manualQR" placeholder="Paste scanned QR token"></div>
+      <button id="submitCab">Save cab entry</button><div id="scanResult"></div></section>`;
+    $("#startCab").onclick=()=>startCamera("cab");
+    $("#stopCab").onclick=stopCamera;
+    $("#submitCab").onclick=()=>submitCab($("#manualQR").value.trim());
+  }
 
-  if (getStaff()) showStaffPortal();
-  else if (getPerson()) showPersonPortal();
-});
+  async function startCamera(mode) {
+    cameraMode=mode;
+    const video=$("#camera");
+    if(!video){say("Scanner panel not available.",true);return;}
+    if(!("BarcodeDetector" in window)){say("QR camera scanning is not supported in this browser. Use a QR scanner app and paste the token.",true);return;}
+    try{
+      stopCamera();
+      cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+      video.srcObject=cameraStream;video.classList.remove("hidden");
+      const detector=new BarcodeDetector({formats:["qr_code"]});
+      $("#scanStatus").textContent="Camera active. Point it at the QR.";
+      const scan=async()=>{
+        if(!cameraStream||!video.isConnected)return;
+        try{
+          const codes=await detector.detect(video);
+          if(codes.length&&codes[0].rawValue){
+            const value=codes[0].rawValue;
+            if(cameraMode==="cab"){ $("#manualQR").value=value; await submitCab(value); }
+            else { $("#foodToken").value=value; stopCamera(); }
+            return;
+          }
+        }catch{}
+        if(cameraStream) requestAnimationFrame(scan);
+      };
+      video.onloadeddata=()=>requestAnimationFrame(scan);
+    }catch(e){say("Camera permission failed: "+e.message,true);}
+  }
+
+  function stopCamera() {
+    if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}
+    const v=$("#camera");if(v){v.srcObject=null;v.classList.add("hidden");}
+  }
+
+  async function submitCab(qr_token) {
+    if(!qr_token){say("Scan or enter an employee QR token.",true);return;}
+    try{
+      const d=await api("/api/cab/scan",{method:"POST",body:JSON.stringify({qr_token})});
+      $("#scanResult").innerHTML=`<div class="msg">Saved: ${esc(d.entry.name)} · ${esc(d.entry.id)} · ${esc(d.entry.date)} ${esc(d.entry.time)}</div>`;
+      $("#manualQR").value="";
+    }catch(e){say(e.message,true);}
+  }
+
+  async function attendancePage() {
+    const people=await api("/api/people");
+    cachedPeople=people;
+    const all=[...people.employees.map(p=>({...p,person_type:"EMPLOYEE"})),...people.interns.map(p=>({...p,person_type:"INTERN"}))].filter(p=>p.status==="ACTIVE");
+    $("#page").innerHTML=`<h2 class="title">Shift Attendance</h2><section class="card">
+      <form id="attendanceForm"><div class="formgrid">
+      ${selectField("Person","attPerson",all.map(p=>p.person_type+"|"+p.id+"|"+p.name))}
+      ${selectField("Shift","attShift",["SHIFT 1","SHIFT 2","SHIFT 3"])}
+      ${selectField("Attendance","attStatus",["PRESENT","ABSENT","N/A"])}
+      ${field("Date","attDate","date",new Date().toISOString().slice(0,10),true)}
+      </div><button>Save attendance</button></form></section>
+      <section class="card" style="margin-top:14px"><h3 class="title">View records</h3>
+      <div class="field"><label>Date</label><input id="attViewDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <button id="loadAttendance">Load attendance</button><div id="attRows"></div></section>`;
+    $("#attPerson").innerHTML=all.map(p=>`<option value="${esc(p.person_type+"|"+p.id)}">${esc(p.name+" · "+p.id+" · "+p.department)}</option>`).join("");
+    $("#attendanceForm").onsubmit=async e=>{e.preventDefault();const [person_type,person_id]=$("#attPerson").value.split("|");try{await api("/api/attendance",{method:"POST",body:JSON.stringify({person_type,person_id,shift:$("#attShift").value,attendance_status:$("#attStatus").value,attendance_date:$("#attDate").value})});say("Attendance saved.");}catch(err){say(err.message,true);}};
+    $("#loadAttendance").onclick=async()=>{try{const d=await api("/api/attendance?date="+encodeURIComponent($("#attViewDate").value));$("#attRows").innerHTML=table(d.attendance,["person_id","person_type","department","room","shift","attendance_status","attendance_date"]);}catch(e){say(e.message,true);}};
+  }
+
+  async function requestsPage() {
+    const d=await api("/api/requests");
+    $("#page").innerHTML=`<h2 class="title">Requests to HR</h2><section class="card">
+      <div class="tablewrap"><table><thead><tr><th>ID / Person</th><th>Request</th><th>Dates</th><th>Remarks</th><th>Status</th><th>HR response</th><th>Action</th></tr></thead><tbody>
+      ${d.requests.map(r=>`<tr><td>${esc(r.id)}<br>${esc(r.person_name)}<br>${esc(r.person_id)}</td><td>${esc(r.request_type)}</td>
+      <td>${esc(r.from_date)}<br>${esc(r.to_date)}</td><td>${esc(r.remarks)}</td><td>${esc(r.status)}</td><td>${esc(r.hr_remarks)}</td>
+      <td>${r.status==="PENDING"?`<button class="small" data-review="${r.id}|APPROVED">Approve</button> <button class="small danger" data-review="${r.id}|REJECTED">Reject</button>`:"Completed"}</td></tr>`).join("")}
+      </tbody></table></div></section>`;
+    $("#page").querySelectorAll("[data-review]").forEach(b=>b.onclick=async()=>{const [id,status]=b.dataset.review.split("|");const remarks=prompt("HR remarks (optional):")||"";try{await api("/api/requests/review",{method:"POST",body:JSON.stringify({id,status,hr_remarks:remarks})});say("Request "+status.toLowerCase()+".");await requestsPage();}catch(e){say(e.message,true);}});
+  }
+
+  async function profilePage(profile) {
+    const d=profile||await api("/api/me");
+    const p=d.user||user;
+    $("#page").innerHTML=`<h2 class="title">My Profile</h2><section class="card"><div class="grid">
+      ${stat("Name",p.name)}${stat("ID",p.id||p.person_id)}${stat("Department",p.department)}${stat("Hostel status",p.hostel_status)}
+      </div><div class="formgrid" style="margin-top:14px">
+      <div><label>Mobile</label><input value="${esc(p.mobile)}" readonly></div>
+      <div><label>Designation</label><input value="${esc(p.designation)}" readonly></div>
+      <div><label>Room</label><input value="${esc(p.room)}" readonly></div>
+      <div class="field"><label>My shift</label><select id="myShift"><option value="">Select shift</option><option>SHIFT 1</option><option>SHIFT 2</option><option>SHIFT 3</option></select></div>
+      </div><button id="saveShift">Update my shift</button>
+      <p class="muted">You can update only your own shift. Contact HR for other profile changes.</p></section>`;
+    $("#myShift").value=p.shift||"";
+    $("#saveShift").onclick=async()=>{try{await api("/api/my/shift",{method:"POST",body:JSON.stringify({shift:$("#myShift").value})});say("Shift updated.");}catch(e){say(e.message,true);}};
+  }
+
+  async function myQRPage(profile) {
+    const d=profile||await api("/api/me");
+    const p=d.user||user;
+    if(!d.qr_token){const fresh=await api("/api/me");d.qr_token=fresh.qr_token;}
+    $("#page").innerHTML=`<h2 class="title">My QR</h2><section class="card">
+      <p>Show this QR to authorized HR for cab entry.</p>
+      <img class="qr" alt="My employee QR" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(d.qr_token)}">
+      <p><strong>${esc(p.name)}</strong><br>${esc(p.id||p.person_id)} · ${esc(p.department)}</p>
+      <button class="secondary" id="copyMyQR">Copy QR token</button></section>`;
+    $("#copyMyQR").onclick=()=>copyText(d.qr_token);
+  }
+
+  function foodScanPage() {
+    $("#page").innerHTML=`<h2 class="title">Food Scanner</h2><section class="card">
+      <p>Scan the QR displayed by HR, then choose your meal.</p>
+      <div class="actions"><button id="startFood">Scan food QR</button><button id="stopFood" class="secondary">Stop camera</button></div>
+      <video id="camera" autoplay playsinline class="hidden"></video>
+      <div class="field"><label>Food QR token</label><input id="foodToken" placeholder="Scan QR or paste token"></div>
+      ${selectField("Meal","mealType",["BREAKFAST","LUNCH","DINNER"])}
+      <button id="submitFood">Record my meal</button></section>`;
+    $("#startFood").onclick=()=>startCamera("food");
+    $("#stopFood").onclick=stopCamera;
+    $("#submitFood").onclick=async()=>{
+      try{await api("/api/food/scan",{method:"POST",body:JSON.stringify({qr_token:$("#foodToken").value.trim(),meal_type:$("#mealType").value})});say("Meal recorded successfully.");$("#foodToken").value="";}
+      catch(e){say(e.message,true);}
+    };
+  }
+
+  async function personRequestsPage() {
+    const d=await api("/api/requests");
+    $("#page").innerHTML=`<h2 class="title">Requests to HR</h2><section class="card">
+      <form id="requestForm">${selectField("Request type","reqType",["LEAVE","TEMPORARY OUT","RETURN","VACATE"])}
+      <div class="formgrid">${field("From date","reqFrom","date")}${field("To date","reqTo","date")}</div>
+      <div class="field"><label>Remarks</label><textarea id="reqRemarks" placeholder="Add a short note for HR"></textarea></div>
+      <button>Submit request</button></form></section>
+      <section class="card" style="margin-top:14px"><h3 class="title">My request history</h3>
+      <div class="tablewrap"><table><thead><tr><th>Type</th><th>Dates</th><th>Remarks</th><th>Status</th><th>HR response</th></tr></thead><tbody>
+      ${d.requests.map(r=>`<tr><td>${esc(r.request_type)}</td><td>${esc(r.from_date)}<br>${esc(r.to_date)}</td><td>${esc(r.remarks)}</td><td>${esc(r.status)}</td><td>${esc(r.hr_remarks)}</td></tr>`).join("")||`<tr><td colspan="5">No requests yet.</td></tr>`}
+      </tbody></table></div></section>`;
+    $("#requestForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/requests",{method:"POST",body:JSON.stringify({request_type:$("#reqType").value,from_date:$("#reqFrom").value,to_date:$("#reqTo").value,remarks:$("#reqRemarks").value})});say("Request sent to HR.");await personRequestsPage();}catch(err){say(err.message,true);}};
+  }
+
+  async function reportsPage() {
+    const month=new Date().toISOString().slice(0,7);
+    $("#page").innerHTML=`<h2 class="title">Reports & Export</h2><section class="card">
+      <div class="field"><label>Report month</label><input id="reportMonth" type="month" value="${month}"></div>
+      <div class="actions"><button id="loadReport">Load report</button><button class="secondary" data-export="food">Food CSV</button><button class="secondary" data-export="cab">Cab CSV</button><button class="secondary" data-export="attendance">Attendance CSV</button><button class="secondary" data-export="requests">Requests CSV</button></div>
+      <div id="reportData"></div></section>`;
+    $("#loadReport").onclick=async()=>{
+      try{const d=await api("/api/reports?month="+encodeURIComponent($("#reportMonth").value));
+        $("#reportData").innerHTML=`<h3>Meal totals</h3>${table(d.food,["meal_type","total"])}<h3>Daily meals</h3>${table(d.daily_food,["entry_date","meal_type","total"])}<h3>Cab totals</h3>${table(d.cab,["entry_date","total"])}<h3>Attendance</h3>${table(d.attendance,["attendance_date","shift","attendance_status","total"])}`;
+      }catch(e){say(e.message,true);}
+    };
+    $("#page").querySelectorAll("[data-export]").forEach(b=>b.onclick=()=>exportCSV(b.dataset.export));
+    $("#loadReport").click();
+  }
+
+  function table(rows, cols) {
+    if(!rows?.length)return `<p class="muted">No records found.</p>`;
+    return `<div class="tablewrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c.replaceAll("_"," "))}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  }
+
+  async function exportCSV(type) {
+    try{
+      const d=await api("/api/export?type="+encodeURIComponent(type));
+      const rows=d.rows||[];
+      if(!rows.length){say("No records to export.");return;}
+      const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+      const csv=[cols,...rows.map(r=>cols.map(c=>r[c]??""))]
+        .map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\r\n");
+      const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+      a.download=`texmo-${type}-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();URL.revokeObjectURL(a.href);
+    }catch(e){say(e.message,true);}
+  }
+
+  async function copyText(value) {
+    try{await navigator.clipboard.writeText(value);say("Copied.");}
+    catch{prompt("Copy this token:",value);}
+  }
+
+  if(token) {
+    enterPortal();
+  } else {
+    loginScreen();
+  }
+})();
