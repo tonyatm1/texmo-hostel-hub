@@ -1,4 +1,5 @@
-const VERSION = "TEXMO-HOSTEL-HUB-3.3";
+
+const VERSION = "TEXMO-HOSTEL-HUB-4.0";
 
 export default {
   async fetch(request, env) {
@@ -11,66 +12,39 @@ export default {
     }
 
     try {
-      // HEALTH CHECK
+      if (!env.DB) {
+        return jsonResponse({
+          success: false,
+          message: "Database binding DB is missing"
+        }, 500);
+      }
+
       if (url.pathname === "/" && request.method === "GET") {
         return jsonResponse({
           success: true,
           message: "TEXMO Hostel Hub is online",
           version: VERSION,
-          database: env.DB ? "Connected" : "Not connected"
+          database: "Connected"
         });
       }
 
-      // DATABASE TEST
-      if (
-        url.pathname === "/api/db-test" &&
-        request.method === "GET"
-      ) {
-        if (!env.DB) {
-          return jsonResponse({
-            success: false,
-            message: "D1 database binding not found"
-          }, 500);
-        }
-
+      if (url.pathname === "/api/db-test" && request.method === "GET") {
         const result = await env.DB
           .prepare("SELECT 1 AS test")
           .first();
 
         return jsonResponse({
           success: true,
-          message: "D1 database connected successfully",
+          message: "Database connected",
           result
         });
       }
 
-      // MASTER KEY TEST
-      if (
-        url.pathname === "/api/master-key-test" &&
-        request.method === "GET"
-      ) {
-        return jsonResponse({
-          success: true,
-          configured: !!env.TEXMO_MASTER_KEY,
-          length: env.TEXMO_MASTER_KEY
-            ? env.TEXMO_MASTER_KEY.length
-            : 0
-        });
-      }
-
-      // STAFF REGISTRATION
-      if (
-        url.pathname === "/api/staff/register" &&
-        request.method === "POST"
-      ) {
+      if (url.pathname === "/api/staff/register" && request.method === "POST") {
         return await staffRegister(request, env);
       }
 
-      // STAFF LOGIN
-      if (
-        url.pathname === "/api/staff/login" &&
-        request.method === "POST"
-      ) {
+      if (url.pathname === "/api/staff/login" && request.method === "POST") {
         return await staffLogin(request, env);
       }
 
@@ -89,33 +63,29 @@ export default {
   }
 };
 
-
-// STAFF REGISTRATION
 async function staffRegister(request, env) {
   const body = await request.json();
 
-  const {
-    name,
-    staff_id,
-    mobile,
-    password,
-    confirm_password,
-    role,
-    master_key
-  } = body;
+  const name = String(body.name || "").trim();
+  const staff_id = String(body.staff_id || "").trim();
+  const mobile = String(body.mobile || "").trim();
+  const password = String(body.password || "");
+  const confirm_password = String(body.confirm_password || "");
+  const role = String(body.role || "").toUpperCase();
+  const master_key = String(body.master_key || "");
 
-  if (
-    !name ||
-    !staff_id ||
-    !mobile ||
-    !password ||
-    !confirm_password ||
-    !role ||
-    !master_key
-  ) {
+  if (!name || !staff_id || !mobile || !password ||
+      !confirm_password || !role || !master_key) {
     return jsonResponse({
       success: false,
       message: "All fields are required"
+    }, 400);
+  }
+
+  if (password.length < 8) {
+    return jsonResponse({
+      success: false,
+      message: "Password must contain at least 8 characters"
     }, 400);
   }
 
@@ -133,7 +103,8 @@ async function staffRegister(request, env) {
     }, 400);
   }
 
-  if (master_key !== env.TEXMO_MASTER_KEY) {
+  if (!env.TEXMO_MASTER_KEY ||
+      master_key !== env.TEXMO_MASTER_KEY) {
     return jsonResponse({
       success: false,
       message: "Invalid Master Key"
@@ -143,44 +114,32 @@ async function staffRegister(request, env) {
   try {
     await env.DB.prepare(`
       INSERT INTO staff
-      (name, staff_id, mobile, password, role)
+        (name, staff_id, mobile, password, role)
       VALUES (?, ?, ?, ?, ?)
-    `)
-      .bind(
-        name,
-        staff_id,
-        mobile,
-        password,
-        role
-      )
-      .run();
+    `).bind(
+      name, staff_id, mobile, password, role
+    ).run();
 
     return jsonResponse({
       success: true,
       message: "Staff registered successfully"
-    });
+    }, 201);
 
   } catch (error) {
-    if (error.message.includes("UNIQUE")) {
+    if (String(error.message).includes("UNIQUE")) {
       return jsonResponse({
         success: false,
         message: "Staff ID already exists"
       }, 409);
     }
-
     throw error;
   }
 }
 
-
-// STAFF LOGIN
 async function staffLogin(request, env) {
   const body = await request.json();
-
-  const {
-    staff_id,
-    password
-  } = body;
+  const staff_id = String(body.staff_id || "").trim();
+  const password = String(body.password || "");
 
   if (!staff_id || !password) {
     return jsonResponse({
@@ -190,21 +149,13 @@ async function staffLogin(request, env) {
   }
 
   const staff = await env.DB.prepare(`
-    SELECT
-      id,
-      name,
-      staff_id,
-      mobile,
-      role,
-      status
+    SELECT id, name, staff_id, mobile, role, status
     FROM staff
     WHERE staff_id = ?
       AND password = ?
       AND status = 'ACTIVE'
     LIMIT 1
-  `)
-    .bind(staff_id, password)
-    .first();
+  `).bind(staff_id, password).first();
 
   if (!staff) {
     return jsonResponse({
@@ -216,19 +167,10 @@ async function staffLogin(request, env) {
   return jsonResponse({
     success: true,
     message: "Staff login successful",
-    staff: {
-      id: staff.id,
-      name: staff.name,
-      staff_id: staff.staff_id,
-      mobile: staff.mobile,
-      role: staff.role,
-      status: staff.status
-    }
+    staff
   });
 }
 
-
-// CORS
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -239,17 +181,12 @@ function corsHeaders() {
   };
 }
 
-
-// JSON RESPONSE
 function jsonResponse(data, status = 200) {
-  return new Response(
-    JSON.stringify(data),
-    {
-      status,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders()
-      }
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      ...corsHeaders()
     }
-  );
+  });
 }
