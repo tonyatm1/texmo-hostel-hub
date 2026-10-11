@@ -1,1020 +1,777 @@
 
-const VERSION = "TEXMO-HOSTEL-HUB-5.0";
-
-const corsHeaders = {
+const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Master-Key"
 };
 
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
+const DEPARTMENTS = ["PDN", "PDN2", "PDN3", "MDN"];
+const SHIFTS = ["SHIFT 1", "SHIFT 2", "SHIFT 3"];
+const STATUSES = ["IN", "OUT/LEAVE", "VACATED"];
+const ROLES = ["HR", "MANAGEMENT", "ADMIN"];
+
+function response(data, status = 200) {
+  return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" }
+    headers: { ...CORS, "Content-Type": "application/json; charset=utf-8" }
   });
+}
 
-const fail = (message, status = 400) =>
-  json({ success: false, message }, status);
+function fail(message, status = 400) {
+  return response({ success: false, message }, status);
+}
 
-const nowIndia = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).formatToParts(new Date());
+function jsonBody(request) {
+  return request.json().catch(() => ({}));
+}
 
-  const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
-  const date = `${p.year}-${p.month}-${p.day}`;
-  const time = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23"
-  }).format(new Date());
+function dateNow() {
+  return new Date().toISOString().slice(0, 10);
+}
 
-  return { date, time };
-};
+function timeNow() {
+  return new Date().toISOString().slice(11, 19);
+}
 
-const randomToken = () => crypto.randomUUID() + crypto.randomUUID();
+function randomToken() {
+  return crypto.randomUUID().replaceAll("-", "") +
+    crypto.randomUUID().replaceAll("-", "");
+}
 
-const encode64 = bytes => {
+function b64url(bytes) {
   let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
 
-const decode64 = value => {
-  const s = value.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(s + "=".repeat((4 - s.length % 4) % 4));
-  return Uint8Array.from(binary, c => c.charCodeAt(0));
-};
+function fromB64url(value) {
+  value = value.replaceAll("-", "+").replaceAll("_", "/");
+  value += "=".repeat((4 - value.length % 4) % 4);
+  return Uint8Array.from(atob(value), c => c.charCodeAt(0));
+}
 
-async function passwordHash(password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+async function hmac(value, secret) {
   const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
   );
-  const bits = await crypto.subtle.deriveBits({
-    name: "PBKDF2",
-    salt,
-    iterations: 150000,
-    hash: "SHA-256"
-  }, key, 256);
-
-  return `pbkdf2$${encode64(salt)}$${encode64(new Uint8Array(bits))}`;
+  return b64url(new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value))
+  ));
 }
 
-async function passwordVerify(password, stored) {
-  if (!stored) return false;
-
-  // Allow existing legacy passwords to log in once, then upgrade the hash.
-  if (!stored.startsWith("pbkdf2$")) {
-    return password === stored;
-  }
-
-  try {
-    const [, saltText, hashText] = stored.split("$");
-    const salt = decode64(saltText);
-    const expected = decode64(hashText);
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(password),
-      "PBKDF2",
-      false,
-      ["deriveBits"]
-    );
-    const bits = new Uint8Array(await crypto.subtle.deriveBits({
-      name: "PBKDF2",
-      salt,
-      iterations: 150000,
-      hash: "SHA-256"
-    }, key, 256));
-
-    if (bits.length !== expected.length) return false;
-    let diff = 0;
-    for (let i = 0; i < bits.length; i++) diff |= bits[i] ^ expected[i];
-    return diff === 0;
-  } catch {
-    return false;
-  }
-}
-
-async function signingKey(env) {
-  const secret = env.TEXMO_MASTER_KEY;
-  if (!secret || secret.length < 16) {
-    throw new Error("TEXMO_MASTER_KEY secret is missing or too short.");
-  }
-
-  return crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign", "verify"]
-  );
-}
-
-async function makeSession(env, claims) {
-  const payload = encode64(new TextEncoder().encode(JSON.stringify({
-    ...claims,
-    exp: Date.now() + 12 * 60 * 60 * 1000
+async function makeSession(payload, secret) {
+  const body = b64url(new TextEncoder().encode(JSON.stringify({
+    ...payload, exp: Date.now() + 7 * 24 * 60 * 60 * 1000
   })));
-
-  const key = await signingKey(env);
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(payload)
-  );
-
-  return `${payload}.${encode64(new Uint8Array(sig))}`;
+  return body + "." + await hmac(body, secret);
 }
 
-async function readSession(request, env) {
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token || !token.includes(".")) return null;
-
+async function readSession(request, secret) {
+  const header = request.headers.get("Authorization") || "";
+  const token = header.replace(/^Bearer\s+/i, "");
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  if (await hmac(parts[0], secret) !== parts[1]) return null;
   try {
-    const [payload, signature] = token.split(".");
-    const key = await signingKey(env);
-    const valid = await crypto.subtle.verify(
-      "HMAC",
-      key,
-      decode64(signature),
-      new TextEncoder().encode(payload)
-    );
-    if (!valid) return null;
-
-    const claims = JSON.parse(new TextDecoder().decode(decode64(payload)));
-    if (!claims.exp || claims.exp < Date.now()) return null;
-    return claims;
+    const payload = JSON.parse(new TextDecoder().decode(fromB64url(parts[0])));
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload;
   } catch {
     return null;
   }
 }
 
-async function bodyOf(request) {
-  try {
-    return await request.json();
-  } catch {
-    return {};
-  }
+async function passwordHash(password) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256", new TextEncoder().encode(password)
+  );
+  return "sha256:" + [...new Uint8Array(digest)]
+    .map(n => n.toString(16).padStart(2, "0")).join("");
 }
 
-async function ensureRequestsTable(db) {
+async function passwordMatches(input, stored) {
+  if (!stored) return false;
+  if (stored === input) return true; // Supports existing plain-text records.
+  return stored === await passwordHash(input);
+}
+
+function safePerson(row, type) {
+  return {
+    person_type: type,
+    id: type === "EMPLOYEE" ? row.employee_id : row.intern_id,
+    person_id: type === "EMPLOYEE" ? row.employee_id : row.intern_id,
+    name: row.name,
+    department: row.department,
+    designation: row.designation || "",
+    mobile: row.mobile,
+    shift: row.shift || "",
+    room: row.room || "",
+    hostel_status: row.hostel_status,
+    status: row.status
+  };
+}
+
+async function ensureExtras(db) {
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS hr_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      person_type TEXT NOT NULL CHECK(person_type IN ('EMPLOYEE','INTERN')),
+      person_type TEXT NOT NULL,
       person_id TEXT NOT NULL,
-      name TEXT NOT NULL,
+      person_name TEXT NOT NULL,
       request_type TEXT NOT NULL,
       from_date TEXT,
       to_date TEXT,
       remarks TEXT,
-      status TEXT NOT NULL DEFAULT 'PENDING'
-        CHECK(status IN ('PENDING','APPROVED','REJECTED')),
+      status TEXT NOT NULL DEFAULT 'PENDING',
       hr_remarks TEXT,
-      reviewed_by TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
-  `);
-}
+  `).run();
 
-async function audit(db, actorType, actorId, action, targetType, targetId, details = "") {
-  try {
-    await db.prepare(`
-      INSERT INTO audit_logs
-      (actor_type, actor_id, action, target_type, target_id, details)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(
-      actorType, actorId || null, action, targetType || null,
-      targetId == null ? null : String(targetId), details
-    ).run();
-  } catch {
-    // Audit logging must not break the main operation.
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_food_date
+    ON food_entries(entry_date, meal_type)
+  `).run().catch(() => {});
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_cab_date
+    ON cab_entries(entry_date)
+  `).run().catch(() => {});
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_requests_status
+    ON hr_requests(status, created_at)
+  `).run().catch(() => {});
+
+  // Seed missing room records only. Existing room data is never deleted.
+  const rooms = [
+    ["A1","A"],["A2","A"],["A3","A"],["A4","A"],
+    ["B1","B"],["B2","B"],["B3","B"],["B4","B"],
+    ["B5","B"],["B6","B"],["B7","B"],["B8","B"],
+    ["C1","C"],["C2","C"],["C3","C"],["C4","C"],
+    ["C5","C"],["C6","C"],["C7","C"],["C8","C"],
+    ["D1","D"],["D2","D"],["D3","D"],["D4","D"]
+  ];
+  for (const [room, block] of rooms) {
+    await db.prepare(
+      "INSERT OR IGNORE INTO rooms (room_number, block, status) VALUES (?, ?, 'ACTIVE')"
+    ).bind(room, block).run();
   }
 }
 
-async function createPersonQr(db, personType, personId) {
-  const existing = await db.prepare(`
-    SELECT token FROM qr_tokens
-    WHERE qr_type='EMPLOYEE' AND person_type=? AND person_id=?
-      AND status='ACTIVE' LIMIT 1
-  `).bind(personType, personId).first();
+function isManager(session) {
+  return session?.kind === "STAFF" && ROLES.includes(session.role);
+}
 
-  if (existing) return existing.token;
+function isPerson(session) {
+  return session?.kind === "PERSON" &&
+    ["EMPLOYEE", "INTERN"].includes(session.person_type);
+}
+
+async function audit(db, actor, action, targetType = "", targetId = "", details = "") {
+  await db.prepare(`
+    INSERT INTO audit_logs (actor_type, actor_id, action, target_type, target_id, details)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(
+    actor?.kind || "SYSTEM",
+    actor?.id || "",
+    action,
+    targetType,
+    String(targetId || ""),
+    typeof details === "string" ? details : JSON.stringify(details)
+  ).run().catch(() => {});
+}
+
+async function getPerson(db, type, id) {
+  if (type === "EMPLOYEE") {
+    return db.prepare("SELECT * FROM employees WHERE employee_id = ?")
+      .bind(id).first();
+  }
+  if (type === "INTERN") {
+    return db.prepare("SELECT * FROM interns WHERE intern_id = ?")
+      .bind(id).first();
+  }
+  return null;
+}
+
+async function createPersonQR(db, type, id) {
+  const old = await db.prepare(`
+    SELECT token FROM qr_tokens
+    WHERE qr_type = 'EMPLOYEE' AND person_type = ? AND person_id = ?
+      AND status = 'ACTIVE' LIMIT 1
+  `).bind(type, id).first();
+
+  if (old) return old.token;
 
   const token = randomToken();
   await db.prepare(`
     INSERT INTO qr_tokens (token, qr_type, person_type, person_id, status)
     VALUES (?, 'EMPLOYEE', ?, ?, 'ACTIVE')
-  `).bind(token, personType, personId).run();
-
+  `).bind(token, type, id).run();
   return token;
 }
 
-async function getPerson(db, personType, personId) {
-  const table = personType === "INTERN" ? "interns" : "employees";
-  const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
-
-  return db.prepare(`
-    SELECT id, ${idColumn} AS person_id, name, department, designation,
-           mobile, shift, room, hostel_status, status
-    FROM ${table} WHERE ${idColumn}=? LIMIT 1
-  `).bind(personId).first();
-}
-
-function isManager(session) {
-  return session && session.kind === "STAFF" &&
-    ["HR", "MANAGEMENT", "ADMIN"].includes(session.role);
-}
-
-function isPerson(session) {
-  return session && session.kind === "PERSON" &&
-    ["EMPLOYEE", "INTERN"].includes(session.personType);
-}
-
-async function requireStaff(request, env) {
-  const session = await readSession(request, env);
-  return isManager(session) ? session : null;
-}
-
-async function requirePerson(request, env) {
-  const session = await readSession(request, env);
-  return isPerson(session) ? session : null;
-}
-
-async function handle(request, env) {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method;
-
-  if (method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+async function api(request, env) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
   }
 
+  if (!env.DB) return fail("D1 binding DB is missing.", 500);
+  if (!env.TEXMO_MASTER_KEY || env.TEXMO_MASTER_KEY.length < 16) {
+    return fail("TEXMO_MASTER_KEY secret missing or shorter than 16 characters.", 500);
+  }
+
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const method = request.method;
   const db = env.DB;
-  if (!db) return fail("D1 binding DB is missing.", 500);
 
   try {
-    await ensureRequestsTable(db);
+    await ensureExtras(db);
 
-    if (method === "GET" && path === "/") {
-      return json({
-        success: true,
-        app: "TEXMO Hostel Hub",
-        version: VERSION,
-        status: "online"
-      });
+    // Health check
+    if (path === "/api/health" && method === "GET") {
+      return response({ success: true, service: "TEXMO Hostel Hub", database: "connected" });
     }
 
-    if (method === "GET" && path === "/api/db-test") {
-      const result = await db.prepare("SELECT 1 AS ok").first();
-      return json({ success: result?.ok === 1, version: VERSION });
-    }
-
-    // STAFF REGISTRATION
-    if (method === "POST" && path === "/api/staff/register") {
-      const b = await bodyOf(request);
-      const name = String(b.name || "").trim();
-      const staffId = String(b.staff_id || b.staffId || "").trim();
-      const mobile = String(b.mobile || "").trim();
+    // Public login
+    if (path === "/api/login" && method === "POST") {
+      const b = await jsonBody(request);
+      const id = String(b.id || b.staff_id || b.employee_id || b.intern_id || "").trim();
       const password = String(b.password || "");
-      const role = String(b.role || "").toUpperCase();
-      const masterKey = String(b.master_key || b.masterKey || "");
+      const type = String(b.type || b.kind || "STAFF").toUpperCase();
 
-      if (!name || !staffId || !mobile || password.length < 8) {
-        return fail("Name, Staff ID, mobile and password (minimum 8 characters) are required.");
-      }
-      if (!["HR", "MANAGEMENT", "ADMIN"].includes(role)) {
-        return fail("Invalid staff role.");
-      }
-      if (!env.TEXMO_MASTER_KEY || masterKey !== env.TEXMO_MASTER_KEY) {
-        return fail("Invalid master key.", 403);
-      }
+      if (!id || !password) return fail("Enter your ID and password.");
 
-      const exists = await db.prepare(
-        "SELECT id FROM staff WHERE staff_id=? LIMIT 1"
-      ).bind(staffId).first();
-      if (exists) return fail("Staff ID already registered.", 409);
+      if (["STAFF", "HR", "MANAGEMENT", "ADMIN"].includes(type)) {
+        const staff = await db.prepare(`
+          SELECT * FROM staff WHERE staff_id = ? AND status = 'ACTIVE' LIMIT 1
+        `).bind(id).first();
 
-      await db.prepare(`
-        INSERT INTO staff (name, staff_id, mobile, password, role, status)
-        VALUES (?, ?, ?, ?, ?, 'ACTIVE')
-      `).bind(name, staffId, mobile, await passwordHash(password), role).run();
-
-      await audit(db, "STAFF", staffId, "REGISTER", "STAFF", staffId);
-      return json({ success: true, message: "Staff registered successfully." });
-    }
-
-    // STAFF LOGIN
-    if (method === "POST" && path === "/api/staff/login") {
-      const b = await bodyOf(request);
-      const staffId = String(b.staff_id || b.staffId || "").trim();
-      const password = String(b.password || "");
-
-      const staff = await db.prepare(`
-        SELECT staff_id, name, mobile, password, role, status
-        FROM staff WHERE staff_id=? LIMIT 1
-      `).bind(staffId).first();
-
-      if (!staff || staff.status !== "ACTIVE" ||
-          !(await passwordVerify(password, staff.password))) {
-        return fail("Incorrect Staff ID or password.", 401);
-      }
-
-      if (!staff.password.startsWith("pbkdf2$")) {
-        await db.prepare("UPDATE staff SET password=? WHERE staff_id=?")
-          .bind(await passwordHash(password), staffId).run();
-      }
-
-      const token = await makeSession(env, {
-        kind: "STAFF", staffId: staff.staff_id, name: staff.name, role: staff.role
-      });
-
-      return json({
-        success: true,
-        token,
-        user: {
-          name: staff.name, id: staff.staff_id, role: staff.role, kind: "STAFF"
+        if (!staff || !(await passwordMatches(password, staff.password))) {
+          return fail("Incorrect Staff ID or password.", 401);
         }
-      });
-    }
 
-    // EMPLOYEE / INTERN SELF-REGISTRATION
-    if (method === "POST" && path === "/api/person/register") {
-      const b = await bodyOf(request);
-      const personType = String(b.person_type || b.personType || "EMPLOYEE").toUpperCase();
-      const personId = String(b.person_id || b.personId || b.employee_id || b.intern_id || "").trim();
-      const name = String(b.name || "").trim();
-      const mobile = String(b.mobile || "").trim();
-      const department = String(b.department || "").toUpperCase().trim();
-      const password = String(b.password || "");
-      const shift = String(b.shift || "").trim();
-
-      if (!["EMPLOYEE", "INTERN"].includes(personType)) return fail("Invalid account type.");
-      if (!personId || !name || !mobile || password.length < 8) {
-        return fail("ID, name, mobile and password (minimum 8 characters) are required.");
-      }
-      if (!["PDN", "PDN2", "PDN3", "MDN"].includes(department)) {
-        return fail("Select a valid department.");
+        const user = {
+          kind: "STAFF", id: staff.staff_id, staff_id: staff.staff_id,
+          name: staff.name, role: staff.role, mobile: staff.mobile
+        };
+        return response({
+          success: true,
+          token: await makeSession(user, env.TEXMO_MASTER_KEY),
+          user
+        });
       }
 
+      const personType = type === "INTERN" ? "INTERN" : "EMPLOYEE";
       const table = personType === "INTERN" ? "interns" : "employees";
       const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
-      const exists = await db.prepare(
-        `SELECT id FROM ${table} WHERE ${idColumn}=? LIMIT 1`
-      ).bind(personId).first();
+      const person = await db.prepare(
+        `SELECT * FROM ${table} WHERE ${idColumn} = ? AND status = 'ACTIVE' LIMIT 1`
+      ).bind(id).first();
 
-      if (exists) return fail("This ID is already registered. Please log in or contact HR.", 409);
-
-      await db.prepare(`
-        INSERT INTO ${table}
-          (${idColumn}, name, department, mobile, password, shift, hostel_status, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'IN', 'ACTIVE')
-      `).bind(
-        personId, name, department, mobile, await passwordHash(password), shift || null
-      ).run();
-
-      const qr = await createPersonQr(db, personType, personId);
-      await audit(db, personType, personId, "SELF_REGISTER", personType, personId);
-
-      return json({
-        success: true,
-        message: "Registration successful. You can now log in.",
-        qr_token: qr
-      });
-    }
-
-    // EMPLOYEE / INTERN LOGIN
-    if (method === "POST" && path === "/api/person/login") {
-      const b = await bodyOf(request);
-      const personType = String(b.person_type || b.personType || "EMPLOYEE").toUpperCase();
-      const personId = String(b.person_id || b.personId || b.employee_id || b.intern_id || "").trim();
-      const password = String(b.password || "");
-
-      if (!["EMPLOYEE", "INTERN"].includes(personType)) return fail("Invalid account type.");
-
-      const table = personType === "INTERN" ? "interns" : "employees";
-      const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
-      const person = await db.prepare(`
-        SELECT ${idColumn} AS person_id, name, password, status
-        FROM ${table} WHERE ${idColumn}=? LIMIT 1
-      `).bind(personId).first();
-
-      if (!person || person.status !== "ACTIVE" ||
-          !(await passwordVerify(password, person.password))) {
-        return fail("Incorrect ID or password, or account inactive.", 401);
+      if (!person || !(await passwordMatches(password, person.password))) {
+        return fail("Incorrect ID or password.", 401);
       }
 
-      if (!person.password.startsWith("pbkdf2$")) {
-        await db.prepare(`UPDATE ${table} SET password=? WHERE ${idColumn}=?`)
-          .bind(await passwordHash(password), personId).run();
-      }
-
-      const qr = await createPersonQr(db, personType, personId);
-      const token = await makeSession(env, {
-        kind: "PERSON",
-        personType,
-        personId: person.person_id,
-        name: person.name
-      });
-
-      return json({
+      const qr = await createPersonQR(db, personType, id);
+      const user = safePerson(person, personType);
+      return response({
         success: true,
-        token,
+        token: await makeSession({
+          kind: "PERSON", person_type: personType, id, role: "PERSON"
+        }, env.TEXMO_MASTER_KEY),
         qr_token: qr,
-        user: {
-          name: person.name,
-          id: person.person_id,
-          kind: personType
-        }
+        user
       });
     }
 
-    // ALL ROUTES BELOW REQUIRE A VALID SESSION.
-
-    if (method === "GET" && path === "/api/me") {
-      const personSession = await requirePerson(request, env);
-      if (personSession) {
-        const person = await getPerson(db, personSession.personType, personSession.personId);
-        if (!person) return fail("Account not found.", 404);
-        return json({ success: true, user: person, qr_token: await createPersonQr(
-          db, personSession.personType, personSession.personId
-        ) });
-      }
-
-      const staffSession = await requireStaff(request, env);
-      if (staffSession) return json({ success: true, user: staffSession });
-      return fail("Please log in again.", 401);
-    }
-
-    // STAFF-ONLY ROUTES
-    const staff = await requireStaff(request, env);
-
-    if (method === "GET" && path === "/api/dashboard") {
-      if (!staff) return fail("Staff login required.", 401);
-
-      const [employees, interns, rooms, requests, cab, food] = await Promise.all([
-        db.prepare("SELECT COUNT(*) AS n FROM employees WHERE status='ACTIVE'").first(),
-        db.prepare("SELECT COUNT(*) AS n FROM interns WHERE status='ACTIVE'").first(),
-        db.prepare("SELECT COUNT(*) AS n FROM rooms WHERE status='ACTIVE'").first(),
-        db.prepare("SELECT COUNT(*) AS n FROM hr_requests WHERE status='PENDING'").first(),
-        db.prepare("SELECT COUNT(*) AS n FROM cab_entries WHERE entry_date=?").bind(nowIndia().date).first(),
-        db.prepare("SELECT COUNT(*) AS n FROM food_entries WHERE entry_date=?").bind(nowIndia().date).first()
-      ]);
-
-      return json({
-        success: true,
-        employees: employees.n,
-        interns: interns.n,
-        rooms: rooms.n,
-        pending_requests: requests.n,
-        cab_today: cab.n,
-        food_today: food.n
-      });
-    }
-
-    if (method === "GET" && path === "/api/people") {
-      if (!staff) return fail("Staff login required.", 401);
-
-      const employees = await db.prepare(`
-        SELECT employee_id AS person_id, name, department, designation, mobile,
-               shift, room, hostel_status, status, 'EMPLOYEE' AS person_type
-        FROM employees ORDER BY name
-      `).all();
-
-      const interns = await db.prepare(`
-        SELECT intern_id AS person_id, name, department, designation, mobile,
-               shift, room, hostel_status, status, 'INTERN' AS person_type
-        FROM interns ORDER BY name
-      `).all();
-
-      return json({ success: true, people: [...employees.results, ...interns.results] });
-    }
-
-    if (method === "POST" && path === "/api/people") {
-      if (!staff) return fail("Staff login required.", 401);
-      const b = await bodyOf(request);
-      const personType = String(b.person_type || "EMPLOYEE").toUpperCase();
-      const personId = String(b.person_id || "").trim();
+    // Person / staff registration
+    if (path === "/api/register" && method === "POST") {
+      const b = await jsonBody(request);
+      const type = String(b.type || b.person_type || "EMPLOYEE").toUpperCase();
       const name = String(b.name || "").trim();
-      const department = String(b.department || "").toUpperCase();
+      const id = String(b.id || b.staff_id || b.employee_id || b.intern_id || "").trim();
       const mobile = String(b.mobile || "").trim();
+      const password = String(b.password || "");
+      const department = String(b.department || "").toUpperCase();
+      const masterKey = request.headers.get("X-Master-Key") || b.master_key || "";
 
-      if (!["EMPLOYEE", "INTERN"].includes(personType) ||
-          !personId || !name || !mobile ||
-          !["PDN", "PDN2", "PDN3", "MDN"].includes(department)) {
-        return fail("Check person type, ID, name, mobile and department.");
+      if (!name || !id || !mobile || password.length < 4) {
+        return fail("Name, ID, mobile and password (minimum 4 characters) are required.");
       }
 
+      if (["STAFF", "HR", "MANAGEMENT", "ADMIN"].includes(type)) {
+        if (masterKey !== env.TEXMO_MASTER_KEY) return fail("Invalid HR master key.", 403);
+        if (!ROLES.includes(type)) return fail("Invalid staff role.");
+        await db.prepare(`
+          INSERT INTO staff (name, staff_id, mobile, password, role, status)
+          VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+        `).bind(name, id, mobile, await passwordHash(password), type).run();
+        await audit(db, {kind:"SYSTEM",id:"registration"}, "STAFF_REGISTERED", "staff", id);
+        return response({ success: true, message: "Staff account created." });
+      }
+
+      if (!DEPARTMENTS.includes(department)) {
+        return fail("Department must be PDN, PDN2, PDN3 or MDN.");
+      }
+
+      const personType = type === "INTERN" ? "INTERN" : "EMPLOYEE";
       const table = personType === "INTERN" ? "interns" : "employees";
       const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
-      const exists = await db.prepare(
-        `SELECT id FROM ${table} WHERE ${idColumn}=?`
-      ).bind(personId).first();
-      if (exists) return fail("ID already exists.", 409);
+      const existing = await db.prepare(
+        `SELECT ${idColumn} FROM ${table} WHERE ${idColumn} = ?`
+      ).bind(id).first();
+      if (existing) return fail("This ID is already registered.");
 
-      const password = String(b.password || randomToken());
       await db.prepare(`
         INSERT INTO ${table}
-        (${idColumn}, name, department, designation, mobile, password, shift, room,
-         hostel_status, status)
+          (${idColumn}, name, department, designation, mobile, password, shift, room, hostel_status, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IN', 'ACTIVE')
       `).bind(
-        personId, name, department, b.designation || null, mobile,
-        await passwordHash(password), b.shift || null, b.room || null
+        id, name, department, String(b.designation || ""),
+        mobile, await passwordHash(password),
+        String(b.shift || ""), String(b.room || "")
       ).run();
 
-      await createPersonQr(db, personType, personId);
-      await audit(db, staff.role, staff.staffId, "CREATE_PERSON", personType, personId);
-      return json({ success: true, message: "Person added." });
+      await createPersonQR(db, personType, id);
+      await audit(db, {kind:"SYSTEM",id:"registration"}, "PERSON_REGISTERED", personType, id);
+      return response({ success: true, message: "Account created. Please log in." });
     }
 
-    if (method === "POST" && path === "/api/people/update") {
-      if (!staff) return fail("Staff login required.", 401);
-      const b = await bodyOf(request);
-      const personType = String(b.person_type || "EMPLOYEE").toUpperCase();
-      const personId = String(b.person_id || "").trim();
-      if (!["EMPLOYEE", "INTERN"].includes(personType) || !personId) return fail("Invalid person.");
+    const session = await readSession(request, env.TEXMO_MASTER_KEY);
 
-      const table = personType === "INTERN" ? "interns" : "employees";
-      const idColumn = personType === "INTERN" ? "intern_id" : "employee_id";
-      const current = await db.prepare(
-        `SELECT id FROM ${table} WHERE ${idColumn}=?`
-      ).bind(personId).first();
-      if (!current) return fail("Person not found.", 404);
-
-      const allowed = ["name", "department", "designation", "mobile", "shift", "room", "hostel_status", "status"];
-      const sets = [];
-      const values = [];
-      for (const key of allowed) {
-        if (b[key] !== undefined) {
-          sets.push(`${key}=?`);
-          values.push(b[key]);
-        }
+    // Session profile
+    if (path === "/api/me" && method === "GET") {
+      if (!session) return fail("Please log in again.", 401);
+      if (isManager(session)) return response({ success: true, user: session });
+      if (isPerson(session)) {
+        const person = await getPerson(db, session.person_type, session.id);
+        if (!person) return fail("Account not found.", 404);
+        const qr = await createPersonQR(db, session.person_type, session.id);
+        return response({
+          success: true, user: safePerson(person, session.person_type), qr_token: qr
+        });
       }
-      if (!sets.length) return fail("No fields to update.");
-      if (b.department !== undefined &&
-          !["PDN", "PDN2", "PDN3", "MDN"].includes(String(b.department).toUpperCase())) {
-        return fail("Invalid department.");
-      }
-      if (b.hostel_status !== undefined &&
-          !["IN", "OUT/LEAVE", "VACATED"].includes(b.hostel_status)) {
-        return fail("Invalid hostel status.");
-      }
-      if (b.status !== undefined && !["ACTIVE", "RESIGNED"].includes(b.status)) {
-        return fail("Invalid person status.");
-      }
-
-      values.push(personId);
-      await db.prepare(`UPDATE ${table} SET ${sets.join(", ")} WHERE ${idColumn}=?`)
-        .bind(...values).run();
-      await audit(db, staff.role, staff.staffId, "UPDATE_PERSON", personType, personId);
-      return json({ success: true, message: "Person updated." });
+      return fail("Invalid session.", 401);
     }
 
-    if (method === "POST" && path === "/api/people/delete") {
-      if (!staff) return fail("Staff login required.", 401);
-      const b = await bodyOf(request);
-      const type = String(b.person_type || "EMPLOYEE").toUpperCase();
-      const id = String(b.person_id || "").trim();
-      if (!["EMPLOYEE", "INTERN"].includes(type) || !id) return fail("Invalid person.");
+    if (!session) return fail("Please log in.", 401);
 
-      const table = type === "INTERN" ? "interns" : "employees";
-      const idColumn = type === "INTERN" ? "intern_id" : "employee_id";
-      await db.prepare(`UPDATE ${table} SET status='RESIGNED' WHERE ${idColumn}=?`)
-        .bind(id).run();
-      await db.prepare(`
-        UPDATE qr_tokens SET status='INACTIVE'
-        WHERE person_type=? AND person_id=? AND qr_type='EMPLOYEE'
-      `).bind(type, id).run();
-
-      await audit(db, staff.role, staff.staffId, "RESIGN_PERSON", type, id);
-      return json({ success: true, message: "Person marked resigned." });
-    }
-
-    if (method === "POST" && path === "/api/hostel/status") {
-      if (!staff) return fail("Staff login required.", 401);
-      const b = await bodyOf(request);
-      const type = String(b.person_type || "EMPLOYEE").toUpperCase();
-      const id = String(b.person_id || "").trim();
-      const status = String(b.status || "").toUpperCase();
-
-      if (!["EMPLOYEE", "INTERN"].includes(type) ||
-          !["IN", "OUT/LEAVE", "VACATED"].includes(status)) {
-        return fail("Invalid hostel status.");
-      }
-
-      const table = type === "INTERN" ? "interns" : "employees";
-      const idColumn = type === "INTERN" ? "intern_id" : "employee_id";
-      const person = await db.prepare(
-        `SELECT name FROM ${table} WHERE ${idColumn}=?`
-      ).bind(id).first();
-      if (!person) return fail("Person not found.", 404);
-
-      const { date } = nowIndia();
-      await db.prepare(`UPDATE ${table} SET hostel_status=? WHERE ${idColumn}=?`)
-        .bind(status, id).run();
-      await db.prepare(`
-        INSERT INTO hostel_status_history
-        (person_type, person_id, status, out_date, return_date, remarks)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(
-        type, id, status,
-        status === "OUT/LEAVE" ? date : null,
-        status === "IN" ? date : null,
-        b.remarks || null
-      ).run();
-
-      return json({ success: true });
-    }
-
-    if (method === "POST" && path === "/api/shift/update") {
-      const personSession = await requirePerson(request, env);
-      const b = await bodyOf(request);
-      const type = personSession ? personSession.personType :
-        String(b.person_type || "EMPLOYEE").toUpperCase();
-      const id = personSession ? personSession.personId : String(b.person_id || "").trim();
+    // Person updates their own shift only
+    if (path === "/api/my/shift" && method === "POST") {
+      if (!isPerson(session)) return fail("Employee/Intern login required.", 403);
+      const b = await jsonBody(request);
       const shift = String(b.shift || "").toUpperCase();
+      if (!SHIFTS.includes(shift)) return fail("Select SHIFT 1, SHIFT 2 or SHIFT 3.");
+      const table = session.person_type === "INTERN" ? "interns" : "employees";
+      const col = session.person_type === "INTERN" ? "intern_id" : "employee_id";
+      await db.prepare(`UPDATE ${table} SET shift = ? WHERE ${col} = ?`)
+        .bind(shift, session.id).run();
+      return response({ success: true, message: "Shift updated." });
+    }
 
-      if (!personSession && !staff) return fail("Login required.", 401);
-      if (personSession && b.person_id && b.person_id !== personSession.personId) {
-        return fail("You can update only your own shift.", 403);
+    // Submit HR request
+    if (path === "/api/requests" && method === "GET") {
+      if (isPerson(session)) {
+        const rows = await db.prepare(`
+          SELECT * FROM hr_requests WHERE person_type = ? AND person_id = ?
+          ORDER BY id DESC LIMIT 100
+        `).bind(session.person_type, session.id).all();
+        return response({ success: true, requests: rows.results || [] });
       }
-      if (!["SHIFT 1", "SHIFT 2", "SHIFT 3"].includes(shift)) {
-        return fail("Invalid shift.");
-      }
-
-      const table = type === "INTERN" ? "interns" : "employees";
-      const idColumn = type === "INTERN" ? "intern_id" : "employee_id";
-      const result = await db.prepare(`UPDATE ${table} SET shift=? WHERE ${idColumn}=?`)
-        .bind(shift, id).run();
-      if (!result.meta.changes) return fail("Person not found.", 404);
-
-      return json({ success: true, message: "Shift updated." });
+      if (!isManager(session)) return fail("Access denied.", 403);
+      const status = url.searchParams.get("status");
+      const rows = status
+        ? await db.prepare("SELECT * FROM hr_requests WHERE status = ? ORDER BY id DESC LIMIT 500").bind(status).all()
+        : await db.prepare("SELECT * FROM hr_requests ORDER BY id DESC LIMIT 500").all();
+      return response({ success: true, requests: rows.results || [] });
     }
 
-    if (method === "GET" && path === "/api/rooms") {
-      if (!staff) return fail("Staff login required.", 401);
-      const rows = await db.prepare("SELECT * FROM rooms ORDER BY room_number").all();
-      return json({ success: true, rooms: rows.results });
-    }
-
-    if (method === "POST" && path === "/api/rooms") {
-      if (!staff) return fail("Staff login required.", 401);
-      const b = await bodyOf(request);
-      const room = String(b.room_number || b.room || "").toUpperCase().trim();
-      if (!/^[A-D][1-8]$/.test(room) ||
-          (room.startsWith("A") && Number(room.slice(1)) > 4) ||
-          (room.startsWith("D") && Number(room.slice(1)) > 4)) {
-        return fail("Room must be A1-A4, B1-B8, C1-C8 or D1-D4.");
-      }
-
-      const block = room[0];
-      const status = b.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
-      try {
-        await db.prepare(`
-          INSERT INTO rooms (room_number, block, status) VALUES (?, ?, ?)
-          ON CONFLICT(room_number) DO UPDATE SET block=excluded.block, status=excluded.status
-        `).bind(room, block, status).run();
-      } catch {
-        return fail("Could not save room.", 500);
-      }
-      return json({ success: true });
-    }
-
-    // HR SCANS A PERSON'S QR FOR CAB ENTRY.
-    if (method === "POST" && path === "/api/cab/scan") {
-      if (!staff) return fail("HR login required.", 401);
-      const b = await bodyOf(request);
-      const personQr = String(b.person_qr || b.qr_token || "").trim();
-      if (!personQr) return fail("Scan the employee/intern QR first.");
-
-      const qr = await db.prepare(`
-        SELECT person_type, person_id FROM qr_tokens
-        WHERE token=? AND qr_type='EMPLOYEE' AND status='ACTIVE' LIMIT 1
-      `).bind(personQr).first();
-      if (!qr) return fail("Invalid or inactive person QR.", 404);
-
-      const person = await getPerson(db, qr.person_type, qr.person_id);
-      if (!person || person.status !== "ACTIVE") return fail("Active person not found.", 404);
-
-      const { date, time } = nowIndia();
-      await db.prepare(`
-        INSERT INTO cab_entries
-        (person_type, person_id, name, department, shift, room, entry_date, entry_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        qr.person_type, qr.person_id, person.name, person.department,
-        person.shift || null, person.room || null, date, time
-      ).run();
-
-      await audit(db, staff.role, staff.staffId, "CAB_SCAN", qr.person_type, qr.person_id);
-      return json({
-        success: true,
-        message: "Cab entry saved.",
-        entry: {
-          name: person.name, id: qr.person_id, department: person.department,
-          shift: person.shift, room: person.room, date, time
-        }
-      });
-    }
-
-    if (method === "GET" && path === "/api/cab") {
-      if (!staff) return fail("Staff login required.", 401);
-      const date = url.searchParams.get("date") || nowIndia().date;
-      const rows = await db.prepare(`
-        SELECT * FROM cab_entries WHERE entry_date=?
-        ORDER BY entry_time DESC
-      `).bind(date).all();
-      return json({ success: true, entries: rows.results });
-    }
-
-    // FOOD QR: HR DISPLAYS THIS QR; EMPLOYEES/INTERNS SCAN IT.
-    if (method === "GET" && path === "/api/food/qr") {
-      if (!staff) return fail("Staff login required.", 401);
-      let config = await db.prepare(`
-        SELECT qr_token FROM food_qr_config WHERE status='ACTIVE' ORDER BY id DESC LIMIT 1
-      `).first();
-
-      if (!config) {
-        const token = randomToken();
-        await db.prepare(`
-          INSERT INTO food_qr_config (qr_token, status) VALUES (?, 'ACTIVE')
-        `).bind(token).run();
-        config = { qr_token: token };
-      }
-
-      return json({
-        success: true,
-        qr_token: config.qr_token,
-        scan_url: `${url.origin}/?food=${encodeURIComponent(config.qr_token)}`
-      });
-    }
-
-    if (method === "POST" && path === "/api/food/scan") {
-      const personSession = await requirePerson(request, env);
-      if (!personSession) return fail("Employee/intern login required.", 401);
-
-      const b = await bodyOf(request);
-      const foodToken = String(b.food_token || b.qr_token || "").trim();
-      const meal = String(b.meal_type || "").toUpperCase();
-      if (!foodToken) return fail("Scan the active food QR.");
-      if (!["BREAKFAST", "LUNCH", "DINNER"].includes(meal)) {
-        return fail("Select Breakfast, Lunch or Dinner.");
-      }
-
-      const config = await db.prepare(`
-        SELECT id FROM food_qr_config
-        WHERE qr_token=? AND status='ACTIVE' LIMIT 1
-      `).bind(foodToken).first();
-      if (!config) return fail("Invalid or inactive food QR.", 403);
-
-      const person = await getPerson(
-        db, personSession.personType, personSession.personId
-      );
-      if (!person || person.status !== "ACTIVE") return fail("Account is inactive.", 403);
-
-      const { date, time } = nowIndia();
-      const duplicate = await db.prepare(`
-        SELECT id FROM food_entries
-        WHERE person_type=? AND person_id=? AND meal_type=? AND entry_date=?
-        LIMIT 1
-      `).bind(personSession.personType, personSession.personId, meal, date).first();
-
-      if (duplicate) {
-        return fail(`Your ${meal.toLowerCase()} entry is already recorded today.`, 409);
-      }
-
-      await db.prepare(`
-        INSERT INTO food_entries
-        (person_type, person_id, name, department, meal_type, entry_date, entry_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        personSession.personType, personSession.personId, person.name,
-        person.department, meal, date, time
-      ).run();
-
-      await audit(
-        db, personSession.personType, personSession.personId,
-        "FOOD_SCAN", "FOOD", meal
-      );
-
-      return json({
-        success: true,
-        message: `${meal} entry saved.`,
-        entry: {
-          name: person.name, id: personSession.personId,
-          count: 1, meal, date, time
-        }
-      });
-    }
-
-    if (method === "GET" && path === "/api/food") {
-      if (!staff) return fail("Staff login required.", 401);
-      const date = url.searchParams.get("date") || nowIndia().date;
-      const rows = await db.prepare(`
-        SELECT * FROM food_entries WHERE entry_date=?
-        ORDER BY entry_time DESC
-      `).bind(date).all();
-
-      const counts = await db.prepare(`
-        SELECT meal_type, COUNT(*) AS count
-        FROM food_entries WHERE entry_date=?
-        GROUP BY meal_type
-      `).bind(date).all();
-
-      return json({ success: true, entries: rows.results, counts: counts.results });
-    }
-
-    if (method === "GET" && path === "/api/reports") {
-      if (!staff) return fail("Staff login required.", 401);
-      const month = url.searchParams.get("month") || nowIndia().date.slice(0, 7);
-
-      const food = await db.prepare(`
-        SELECT meal_type, COUNT(*) AS count
-        FROM food_entries WHERE substr(entry_date,1,7)=?
-        GROUP BY meal_type
-      `).bind(month).all();
-
-      const cab = await db.prepare(`
-        SELECT COUNT(*) AS count FROM cab_entries
-        WHERE substr(entry_date,1,7)=?
-      `).bind(month).first();
-
-      const attendance = await db.prepare(`
-        SELECT attendance_status, COUNT(*) AS count
-        FROM shift_attendance WHERE substr(attendance_date,1,7)=?
-        GROUP BY attendance_status
-      `).bind(month).all();
-
-      const dailyFood = await db.prepare(`
-        SELECT entry_date, meal_type, COUNT(*) AS count
-        FROM food_entries WHERE substr(entry_date,1,7)=?
-        GROUP BY entry_date, meal_type
-        ORDER BY entry_date
-      `).bind(month).all();
-
-      return json({
-        success: true, month, food: food.results,
-        daily_food: dailyFood.results, cab_total: cab.count,
-        attendance: attendance.results
-      });
-    }
-
-    // HR REQUESTS: PERSON CREATES, STAFF REVIEWS.
-    if (method === "POST" && path === "/api/requests") {
-      const personSession = await requirePerson(request, env);
-      if (!personSession) return fail("Employee/intern login required.", 401);
-
-      const b = await bodyOf(request);
-      const requestType = String(b.request_type || "").toUpperCase();
-      const allowed = ["LEAVE", "VACATE", "TEMPORARY_OUT", "RETURN", "OTHER"];
+    if (path === "/api/requests" && method === "POST") {
+      if (!isPerson(session)) return fail("Employee/Intern login required.", 403);
+      const b = await jsonBody(request);
+      const allowed = ["LEAVE", "TEMPORARY OUT", "RETURN", "VACATE"];
+      const requestType = String(b.request_type || b.type || "").toUpperCase();
       if (!allowed.includes(requestType)) return fail("Invalid request type.");
 
-      const person = await getPerson(db, personSession.personType, personSession.personId);
-      if (!person || person.status !== "ACTIVE") return fail("Account is inactive.", 403);
+      const person = await getPerson(db, session.person_type, session.id);
+      if (!person || person.status !== "ACTIVE") return fail("Active account not found.", 403);
 
       await db.prepare(`
         INSERT INTO hr_requests
-        (person_type, person_id, name, request_type, from_date, to_date, remarks)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+          (person_type, person_id, person_name, request_type, from_date, to_date, remarks, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
       `).bind(
-        personSession.personType, personSession.personId, person.name,
-        requestType, b.from_date || null, b.to_date || null,
-        String(b.remarks || "").slice(0, 1000) || null
+        session.person_type, session.id, person.name, requestType,
+        String(b.from_date || ""), String(b.to_date || ""),
+        String(b.remarks || "")
       ).run();
 
-      return json({ success: true, message: "Request sent to HR." });
+      await audit(db, session, "REQUEST_SUBMITTED", "request", "", requestType);
+      return response({ success: true, message: "Request sent to HR." });
     }
 
-    if (method === "GET" && path === "/api/requests") {
-      const personSession = await requirePerson(request, env);
-      if (personSession) {
-        const rows = await db.prepare(`
-          SELECT * FROM hr_requests WHERE person_type=? AND person_id=?
-          ORDER BY id DESC
-        `).bind(personSession.personType, personSession.personId).all();
-        return json({ success: true, requests: rows.results });
+    // HR approves / rejects requests
+    if (path === "/api/requests/review" && method === "POST") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const b = await jsonBody(request);
+      const id = Number(b.id || b.request_id);
+      const decision = String(b.status || "").toUpperCase();
+      if (!id || !["APPROVED", "REJECTED"].includes(decision)) {
+        return fail("Request ID and APPROVED/REJECTED status are required.");
       }
 
-      if (!staff) return fail("Login required.", 401);
-      const status = url.searchParams.get("status");
-      const rows = status
-        ? await db.prepare("SELECT * FROM hr_requests WHERE status=? ORDER BY id DESC")
-            .bind(status).all()
-        : await db.prepare("SELECT * FROM hr_requests ORDER BY id DESC").all();
-
-      return json({ success: true, requests: rows.results });
-    }
-
-    if (method === "POST" && path === "/api/requests/review") {
-      if (!staff) return fail("HR login required.", 401);
-      const b = await bodyOf(request);
-      const id = Number(b.id);
-      const status = String(b.status || "").toUpperCase();
-      if (!id || !["APPROVED", "REJECTED"].includes(status)) {
-        return fail("Request ID and approval decision are required.");
-      }
-
-      const req = await db.prepare("SELECT * FROM hr_requests WHERE id=?")
-        .bind(id).first();
+      const req = await db.prepare("SELECT * FROM hr_requests WHERE id = ?").bind(id).first();
       if (!req) return fail("Request not found.", 404);
 
       await db.prepare(`
-        UPDATE hr_requests SET status=?, hr_remarks=?, reviewed_by=?,
-          updated_at=CURRENT_TIMESTAMP WHERE id=?
-      `).bind(
-        status, String(b.hr_remarks || "").slice(0, 1000),
-        staff.staffId, id
-      ).run();
+        UPDATE hr_requests SET status = ?, hr_remarks = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(decision, String(b.hr_remarks || b.remarks || ""), id).run();
 
-      // Change hostel status only after an approved request.
-      if (status === "APPROVED" &&
-          ["LEAVE", "VACATE", "TEMPORARY_OUT", "RETURN"].includes(req.request_type)) {
+      if (decision === "APPROVED") {
         const table = req.person_type === "INTERN" ? "interns" : "employees";
-        const idColumn = req.person_type === "INTERN" ? "intern_id" : "employee_id";
-        const newStatus = req.request_type === "VACATE" ? "VACATED" :
-          req.request_type === "RETURN" ? "IN" : "OUT/LEAVE";
+        const col = req.person_type === "INTERN" ? "intern_id" : "employee_id";
+        let newStatus = null;
+        if (req.request_type === "LEAVE" || req.request_type === "TEMPORARY OUT") newStatus = "OUT/LEAVE";
+        if (req.request_type === "RETURN") newStatus = "IN";
+        if (req.request_type === "VACATE") newStatus = "VACATED";
 
-        await db.prepare(`UPDATE ${table} SET hostel_status=? WHERE ${idColumn}=?`)
-          .bind(newStatus, req.person_id).run();
-
-        const { date } = nowIndia();
-        await db.prepare(`
-          INSERT INTO hostel_status_history
-          (person_type, person_id, status, out_date, return_date, remarks)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(
-          req.person_type, req.person_id, newStatus,
-          newStatus === "OUT/LEAVE" ? date : null,
-          newStatus === "IN" ? date : null,
-          b.hr_remarks || req.remarks || null
-        ).run();
+        if (newStatus) {
+          await db.prepare(`UPDATE ${table} SET hostel_status = ? WHERE ${col} = ?`)
+            .bind(newStatus, req.person_id).run();
+          await db.prepare(`
+            INSERT INTO hostel_status_history
+              (person_type, person_id, status, out_date, return_date, remarks)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).bind(
+            req.person_type, req.person_id, newStatus,
+            newStatus === "OUT/LEAVE" ? (req.from_date || dateNow()) : null,
+            newStatus === "IN" ? dateNow() : (req.to_date || null),
+            String(b.hr_remarks || b.remarks || req.remarks || "")
+          ).run();
+        }
       }
 
-      await audit(db, staff.role, staff.staffId, "REVIEW_REQUEST", "HR_REQUEST", id, status);
-      return json({ success: true, message: `Request ${status.toLowerCase()}.` });
+      await audit(db, session, "REQUEST_" + decision, "request", id);
+      return response({ success: true, message: "Request " + decision.toLowerCase() + "." });
     }
 
-    if (method === "GET" && path === "/api/attendance") {
-      if (!staff) return fail("Staff login required.", 401);
-      const date = url.searchParams.get("date") || nowIndia().date;
+    // Dashboard
+    if (path === "/api/dashboard" || path === "/api/summary") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const [employees, interns, rooms, pending, cab, food, attendance] = await Promise.all([
+        db.prepare("SELECT * FROM employees ORDER BY name").all(),
+        db.prepare("SELECT * FROM interns ORDER BY name").all(),
+        db.prepare("SELECT * FROM rooms ORDER BY block, room_number").all(),
+        db.prepare("SELECT COUNT(*) AS n FROM hr_requests WHERE status = 'PENDING'").first(),
+        db.prepare("SELECT COUNT(*) AS n FROM cab_entries WHERE entry_date = ?").bind(dateNow()).first(),
+        db.prepare("SELECT COUNT(*) AS n FROM food_entries WHERE entry_date = ?").bind(dateNow()).first(),
+        db.prepare("SELECT COUNT(*) AS n FROM shift_attendance WHERE attendance_date = ?").bind(dateNow()).first()
+      ]);
+      return response({
+        success: true,
+        employees: (employees.results || []).map(r => safePerson(r, "EMPLOYEE")),
+        interns: (interns.results || []).map(r => safePerson(r, "INTERN")),
+        rooms: rooms.results || [],
+        pending_requests: pending?.n || 0,
+        cab_today: cab?.n || 0,
+        food_today: food?.n || 0,
+        attendance_today: attendance?.n || 0
+      });
+    }
+
+    // Full people list and edit
+    if (path === "/api/people" && method === "GET") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const [e, i] = await Promise.all([
+        db.prepare("SELECT * FROM employees ORDER BY name").all(),
+        db.prepare("SELECT * FROM interns ORDER BY name").all()
+      ]);
+      return response({
+        success: true,
+        employees: (e.results || []).map(r => safePerson(r, "EMPLOYEE")),
+        interns: (i.results || []).map(r => safePerson(r, "INTERN"))
+      });
+    }
+
+    if (path === "/api/people/update" && method === "POST") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const b = await jsonBody(request);
+      const type = String(b.person_type || b.type || "EMPLOYEE").toUpperCase();
+      const id = String(b.person_id || b.id || "").trim();
+      if (!id || !["EMPLOYEE", "INTERN"].includes(type)) return fail("Person type and ID required.");
+
+      const department = String(b.department || "").toUpperCase();
+      if (department && !DEPARTMENTS.includes(department)) return fail("Invalid department.");
+      if (b.hostel_status && !STATUSES.includes(String(b.hostel_status).toUpperCase())) return fail("Invalid hostel status.");
+
+      const table = type === "INTERN" ? "interns" : "employees";
+      const col = type === "INTERN" ? "intern_id" : "employee_id";
+      const current = await getPerson(db, type, id);
+      if (!current) return fail("Person not found.", 404);
+
+      await db.prepare(`
+        UPDATE ${table} SET
+          name = ?, department = ?, designation = ?, mobile = ?, shift = ?, room = ?,
+          hostel_status = ?, status = ?
+        WHERE ${col} = ?
+      `).bind(
+        String(b.name ?? current.name),
+        department || current.department,
+        String(b.designation ?? current.designation ?? ""),
+        String(b.mobile ?? current.mobile),
+        String(b.shift ?? current.shift ?? ""),
+        String(b.room ?? current.room ?? ""),
+        String(b.hostel_status ?? current.hostel_status),
+        String(b.status ?? current.status),
+        id
+      ).run();
+
+      if (b.password) {
+        await db.prepare(`UPDATE ${table} SET password = ? WHERE ${col} = ?`)
+          .bind(await passwordHash(String(b.password)), id).run();
+      }
+      await audit(db, session, "PERSON_UPDATED", type, id);
+      return response({ success: true, message: "Record updated." });
+    }
+
+    if (path === "/api/people/delete" && method === "POST") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const b = await jsonBody(request);
+      const type = String(b.person_type || b.type || "EMPLOYEE").toUpperCase();
+      const id = String(b.person_id || b.id || "").trim();
+      if (!id || !["EMPLOYEE", "INTERN"].includes(type)) return fail("Person type and ID required.");
+      const table = type === "INTERN" ? "interns" : "employees";
+      const col = type === "INTERN" ? "intern_id" : "employee_id";
+      await db.prepare(`UPDATE ${table} SET status = 'RESIGNED' WHERE ${col} = ?`).bind(id).run();
+      await audit(db, session, "PERSON_MARKED_RESIGNED", type, id);
+      return response({ success: true, message: "Record marked RESIGNED. Historical data retained." });
+    }
+
+    // Rooms: update room metadata only, never enforce a fixed bed count
+    if (path === "/api/rooms" && method === "GET") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const rows = await db.prepare("SELECT * FROM rooms ORDER BY block, room_number").all();
+      return response({ success: true, rooms: rows.results || [] });
+    }
+
+    if (path === "/api/rooms/update" && method === "POST") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const b = await jsonBody(request);
+      if (!b.room_number) return fail("Room number required.");
+      await db.prepare("UPDATE rooms SET status = ? WHERE room_number = ?")
+        .bind(String(b.status || "ACTIVE"), String(b.room_number)).run();
+      return response({ success: true, message: "Room updated." });
+    }
+
+    // Food QR: HR creates/reuses one active food QR token
+    if (path === "/api/food/qr" && method === "GET") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      let item = await db.prepare(`
+        SELECT qr_token FROM food_qr_config WHERE status = 'ACTIVE' ORDER BY id DESC LIMIT 1
+      `).first();
+      if (!item) {
+        const token = randomToken();
+        await db.prepare("INSERT INTO food_qr_config (qr_token, status) VALUES (?, 'ACTIVE')")
+          .bind(token).run();
+        item = { qr_token: token };
+      }
+      return response({ success: true, qr_token: item.qr_token });
+    }
+
+    // Scan employee QR to record cab entry
+    if (path === "/api/cab/scan" && method === "POST") {
+      if (!isManager(session)) return fail("HR/Management login required.", 403);
+      const b = await jsonBody(request);
+      const token = String(b.qr_token || b.token || "").trim();
+      if (!token) return fail("Scan an employee QR first.");
+
+      const qr = await db.prepare(`
+        SELECT * FROM qr_tokens WHERE token = ? AND qr_type = 'EMPLOYEE' AND status = 'ACTIVE'
+      `).bind(token).first();
+      if (!qr) return fail("Invalid or inactive employee QR.", 404);
+
+      const p = await getPerson(db, qr.person_type, qr.person_id);
+      if (!p || p.status !== "ACTIVE") return fail("Active person not found.", 404);
+
+      const d = dateNow(), t = timeNow();
+      await db.prepare(`
+        INSERT INTO cab_entries
+          (person_type, person_id, name, department, shift, room, entry_date, entry_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        qr.person_type, qr.person_id, p.name, p.department,
+        p.shift || "", p.room || "", d, t
+      ).run();
+      await audit(db, session, "CAB_SCAN", qr.person_type, qr.person_id);
+      return response({
+        success: true, message: "Cab entry saved.",
+        entry: { name: p.name, id: qr.person_id, department: p.department, shift: p.shift || "", room: p.room || "", date: d, time: t }
+      });
+    }
+
+    // Employee scans HR food QR and selects meal
+    if (path === "/api/food/scan" && method === "POST") {
+      if (!isPerson(session)) return fail("Employee/Intern login required.", 403);
+      const b = await jsonBody(request);
+      const token = String(b.qr_token || b.token || "").trim();
+      const meal = String(b.meal_type || "").toUpperCase();
+      if (!["BREAKFAST", "LUNCH", "DINNER"].includes(meal)) return fail("Select Breakfast, Lunch or Dinner.");
+
+      const validQR = await db.prepare(`
+        SELECT id FROM food_qr_config WHERE qr_token = ? AND status = 'ACTIVE'
+        UNION ALL
+        SELECT id FROM qr_tokens WHERE token = ? AND qr_type = 'FOOD' AND status = 'ACTIVE'
+        LIMIT 1
+      `).bind(token, token).first();
+      if (!validQR) return fail("Invalid or inactive food QR.", 403);
+
+      const p = await getPerson(db, session.person_type, session.id);
+      if (!p || p.status !== "ACTIVE") return fail("Active person not found.", 404);
+
+      const existing = await db.prepare(`
+        SELECT id FROM food_entries
+        WHERE person_type = ? AND person_id = ? AND meal_type = ? AND entry_date = ?
+        LIMIT 1
+      `).bind(session.person_type, session.id, meal, dateNow()).first();
+      if (existing) return fail("Already recorded for this meal today.");
+
+      await db.prepare(`
+        INSERT INTO food_entries (person_type, person_id, name, department, meal_type, entry_date, entry_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        session.person_type, session.id, p.name, p.department, meal, dateNow(), timeNow()
+      ).run();
+      await audit(db, session, "FOOD_SCAN", "food", session.id, meal);
+      return response({ success: true, message: meal + " recorded successfully." });
+    }
+
+    // Attendance: management records PRESENT / ABSENT / N/A
+    if (path === "/api/attendance" && method === "GET") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const date = url.searchParams.get("date") || dateNow();
       const rows = await db.prepare(`
-        SELECT * FROM shift_attendance WHERE attendance_date=?
+        SELECT * FROM shift_attendance WHERE attendance_date = ?
         ORDER BY department, person_id
       `).bind(date).all();
-      return json({ success: true, entries: rows.results });
+      return response({ success: true, attendance: rows.results || [], date });
     }
 
-    if (method === "POST" && path === "/api/attendance") {
-      if (!staff) return fail("Staff login required.", 401);
-      const b = await bodyOf(request);
+    if (path === "/api/attendance" && method === "POST") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const b = await jsonBody(request);
       const type = String(b.person_type || "EMPLOYEE").toUpperCase();
       const id = String(b.person_id || "").trim();
       const shift = String(b.shift || "").toUpperCase();
       const status = String(b.attendance_status || b.status || "").toUpperCase();
-      const date = String(b.attendance_date || nowIndia().date);
+      const date = String(b.attendance_date || dateNow());
+      if (!["EMPLOYEE", "INTERN"].includes(type) || !id) return fail("Person type and ID required.");
+      if (!SHIFTS.includes(shift) || !["PRESENT", "ABSENT", "N/A"].includes(status)) return fail("Invalid shift or attendance status.");
+      const p = await getPerson(db, type, id);
+      if (!p) return fail("Person not found.", 404);
 
-      if (!["EMPLOYEE", "INTERN"].includes(type) ||
-          !["SHIFT 1", "SHIFT 2", "SHIFT 3"].includes(shift) ||
-          !["PRESENT", "ABSENT", "N/A"].includes(status) || !id) {
-        return fail("Invalid attendance details.");
+      const old = await db.prepare(`
+        SELECT id FROM shift_attendance
+        WHERE person_type = ? AND person_id = ? AND attendance_date = ? AND shift = ?
+        LIMIT 1
+      `).bind(type, id, date, shift).first();
+
+      if (old) {
+        await db.prepare(`
+          UPDATE shift_attendance SET attendance_status = ?, department = ?, room = ?
+          WHERE id = ?
+        `).bind(status, p.department, p.room || "", old.id).run();
+      } else {
+        await db.prepare(`
+          INSERT INTO shift_attendance
+            (person_type, person_id, attendance_date, shift, attendance_status, department, room)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(type, id, date, shift, status, p.department, p.room || "").run();
       }
-
-      const person = await getPerson(db, type, id);
-      if (!person) return fail("Person not found.", 404);
-
-      await db.prepare(`
-        INSERT INTO shift_attendance
-        (person_type, person_id, attendance_date, shift, attendance_status, department, room)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        type, id, date, shift, status, person.department, person.room
-      ).run();
-
-      return json({ success: true });
+      return response({ success: true, message: "Attendance saved." });
     }
 
-    if (method === "POST" && path === "/api/cleanup") {
-      if (!staff) return fail("Staff login required.", 401);
-      const result = await cleanupOldRecords(db);
-      return json({ success: true, deleted: result });
+    // Reports and meal totals
+    if (path === "/api/reports" && method === "GET") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const month = url.searchParams.get("month") || dateNow().slice(0, 7);
+      const [food, dailyFood, cab, attendance] = await Promise.all([
+        db.prepare(`
+          SELECT meal_type, COUNT(*) AS total FROM food_entries
+          WHERE substr(entry_date, 1, 7) = ? GROUP BY meal_type
+        `).bind(month).all(),
+        db.prepare(`
+          SELECT entry_date, meal_type, COUNT(*) AS total FROM food_entries
+          WHERE substr(entry_date, 1, 7) = ?
+          GROUP BY entry_date, meal_type ORDER BY entry_date, meal_type
+        `).bind(month).all(),
+        db.prepare(`
+          SELECT entry_date, COUNT(*) AS total FROM cab_entries
+          WHERE substr(entry_date, 1, 7) = ? GROUP BY entry_date ORDER BY entry_date
+        `).bind(month).all(),
+        db.prepare(`
+          SELECT attendance_date, shift, attendance_status, COUNT(*) AS total
+          FROM shift_attendance WHERE substr(attendance_date, 1, 7) = ?
+          GROUP BY attendance_date, shift, attendance_status
+          ORDER BY attendance_date, shift
+        `).bind(month).all()
+      ]);
+      return response({
+        success: true, month,
+        food: food.results || [],
+        daily_food: dailyFood.results || [],
+        cab: cab.results || [],
+        attendance: attendance.results || []
+      });
     }
 
-    return fail("Route not found.", 404);
+    // CSV data exports. Frontend creates the downloadable file.
+    if (path === "/api/export" && method === "GET") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const type = String(url.searchParams.get("type") || "employees").toLowerCase();
+      const allowed = {
+        employees: "SELECT * FROM employees ORDER BY name",
+        interns: "SELECT * FROM interns ORDER BY name",
+        rooms: "SELECT * FROM rooms ORDER BY block, room_number",
+        food: "SELECT * FROM food_entries ORDER BY id DESC LIMIT 10000",
+        cab: "SELECT * FROM cab_entries ORDER BY id DESC LIMIT 10000",
+        attendance: "SELECT * FROM shift_attendance ORDER BY id DESC LIMIT 10000",
+        requests: "SELECT * FROM hr_requests ORDER BY id DESC LIMIT 10000"
+      };
+      if (!allowed[type]) return fail("Unsupported export type.");
+      const rows = await db.prepare(allowed[type]).all();
+      return response({ success: true, rows: rows.results || [] });
+    }
+
+    // Recent history for HR
+    if (path === "/api/history" && method === "GET") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const id = url.searchParams.get("person_id");
+      const rows = id
+        ? await db.prepare("SELECT * FROM hostel_status_history WHERE person_id = ? ORDER BY id DESC LIMIT 200").bind(id).all()
+        : await db.prepare("SELECT * FROM hostel_status_history ORDER BY id DESC LIMIT 500").all();
+      return response({ success: true, history: rows.results || [] });
+    }
+
+    // Cleanup old transactional records only. People and rooms are never removed.
+    if (path === "/api/admin/cleanup" && method === "POST") {
+      if (!isManager(session)) return fail("Management access required.", 403);
+      const results = await Promise.all([
+        db.prepare("DELETE FROM cab_entries WHERE entry_date < date('now','-1 month')").run(),
+        db.prepare("DELETE FROM food_entries WHERE entry_date < date('now','-1 month')").run(),
+        db.prepare("DELETE FROM shift_attendance WHERE attendance_date < date('now','-1 month')").run()
+      ]);
+      await audit(db, session, "AUTO_CLEANUP", "records", "", "Records older than one month removed");
+      return response({ success: true, message: "Old cab, food and attendance records cleaned." });
+    }
+
+    return fail("API route not found: " + method + " " + path, 404);
   } catch (error) {
-    return json({
+    return response({
       success: false,
       message: "Server error.",
       detail: String(error?.message || error)
@@ -1022,25 +779,17 @@ async function handle(request, env) {
   }
 }
 
-async function cleanupOldRecords(db) {
-  const result = {};
-  for (const table of ["cab_entries", "food_entries", "shift_attendance"]) {
-    const dateColumn = table === "shift_attendance" ? "attendance_date" : "entry_date";
-    const r = await db.prepare(`
-      DELETE FROM ${table}
-      WHERE ${dateColumn} < date('now','-1 month')
-    `).run();
-    result[table] = r.meta?.changes || 0;
-  }
-  return result;
-}
-
 export default {
   async fetch(request, env) {
-    return handle(request, env);
+    return api(request, env);
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(cleanupOldRecords(env.DB));
+    if (!env.DB) return;
+    ctx.waitUntil(Promise.all([
+      env.DB.prepare("DELETE FROM cab_entries WHERE entry_date < date('now','-1 month')").run(),
+      env.DB.prepare("DELETE FROM food_entries WHERE entry_date < date('now','-1 month')").run(),
+      env.DB.prepare("DELETE FROM shift_attendance WHERE attendance_date < date('now','-1 month')").run()
+    ]));
   }
 };
