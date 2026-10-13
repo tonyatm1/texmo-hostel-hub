@@ -7,5 +7,8 @@ binding = "DB"
 database_name = "texmo-hostel-hub-v2"
 database_id = "94fa1cc7-2633-4cea-8a8d-3e8e2e0f9856"
 
+[vars]
+TEXMO_MASTER_KEY = "TexmoHR@2026SecureKey"
+
 [assets]
 directory = "."
