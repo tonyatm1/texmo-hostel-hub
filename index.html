@@ -5,44 +5,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#087f4b">
+  <meta name="description" content="TEXMO Hostel Hub Hostel Management System">
   <title>TEXMO Hostel Hub</title>
 
   <style>
     :root {
       --green: #087f4b;
-      --green-dark: #05613a;
-      --green-light: #e9f8ef;
-      --white: #ffffff;
+      --dark: #05613a;
+      --light: #e9f8ef;
+      --white: #fff;
       --bg: #f4f8f5;
       --text: #18352a;
       --muted: #687b71;
       --border: #dce9e0;
       --red: #c62828;
-      --shadow: 0 8px 24px rgba(16, 70, 43, .08);
+      --shadow: 0 8px 24px rgba(16,70,43,.08);
     }
 
     * { box-sizing: border-box; }
 
+    html { scroll-behavior: smooth; }
+
     body {
       margin: 0;
+      min-height: 100vh;
       font-family: Arial, Helvetica, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
     }
 
-    button, input, select, textarea {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    [hidden] { display: none !important; }
 
     .topbar {
-      background: linear-gradient(120deg, var(--green-dark), var(--green));
+      background: linear-gradient(120deg,var(--dark),var(--green));
       color: white;
-      padding: 18px 20px;
+      padding: 17px 20px;
       box-shadow: var(--shadow);
     }
 
@@ -64,29 +63,22 @@
     .brand-logo {
       width: 48px;
       height: 48px;
+      flex-shrink: 0;
       border-radius: 14px;
       background: white;
       color: var(--green);
       display: grid;
       place-items: center;
-      font-size: 24px;
+      font-size: 25px;
       font-weight: 800;
     }
 
-    .brand h1 {
-      font-size: 21px;
-      margin: 0 0 5px;
-    }
-
-    .brand p {
-      margin: 0;
-      font-size: 12px;
-      opacity: .9;
-    }
+    .brand h1 { font-size: 21px; margin: 0 0 5px; }
+    .brand p { margin: 0; font-size: 12px; opacity: .9; }
 
     .online {
       font-size: 12px;
-      border: 1px solid rgba(255,255,255,.4);
+      border: 1px solid #ffffff66;
       border-radius: 30px;
       padding: 8px 12px;
       white-space: nowrap;
@@ -96,13 +88,14 @@
       max-width: 1150px;
       margin: 25px auto;
       padding: 0 16px 35px;
+      min-height: 65vh;
     }
 
     .screen { display: none; }
     .screen.active { display: block; }
 
     .welcome {
-      background: linear-gradient(135deg, #ffffff, #e9f8ef);
+      background: linear-gradient(135deg,#fff,#e9f8ef);
       border: 1px solid var(--border);
       border-radius: 22px;
       padding: 30px 24px;
@@ -111,23 +104,20 @@
 
     .welcome h2 {
       margin: 0 0 10px;
-      font-size: clamp(24px, 4vw, 34px);
+      font-size: clamp(24px,4vw,34px);
     }
 
     .welcome p {
       color: var(--muted);
       margin: 0;
-      line-height: 1.6;
+      line-height: 1.7;
     }
 
-    .section-heading {
-      margin: 24px 0 14px;
-      font-size: 18px;
-    }
+    .section-heading { margin: 24px 0 14px; font-size: 19px; }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2,minmax(0,1fr));
       gap: 16px;
     }
 
@@ -140,14 +130,12 @@
       min-width: 0;
     }
 
-    .card h3, .panel h2, .panel h3 {
-      margin-top: 0;
-    }
+    .card h3, .panel h2, .panel h3 { margin-top: 0; }
 
     .card p {
       color: var(--muted);
       font-size: 14px;
-      line-height: 1.5;
+      line-height: 1.6;
     }
 
     .card-icon {
@@ -156,7 +144,7 @@
       display: grid;
       place-items: center;
       border-radius: 14px;
-      background: var(--green-light);
+      background: var(--light);
       font-size: 23px;
       margin-bottom: 15px;
     }
@@ -172,11 +160,12 @@
       background: var(--green);
       color: white;
       font-weight: 700;
-      text-decoration: none;
       min-height: 43px;
+      text-decoration: none;
     }
 
-    .btn:hover { background: var(--green-dark); }
+    .btn:hover { background: var(--dark); }
+    .btn:disabled { opacity: .6; cursor: wait; }
 
     .btn.secondary {
       background: white;
@@ -190,11 +179,11 @@
 
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2,minmax(0,1fr));
       gap: 14px;
     }
 
-    .field { margin-bottom: 15px; }
+    .field { margin-bottom: 15px; min-width: 0; }
 
     .field label {
       display: block;
@@ -203,24 +192,32 @@
       font-weight: 700;
     }
 
-    .field input, .field select, .field textarea,
     input, select, textarea {
       max-width: 100%;
     }
 
+    .field input, .field select, .field textarea,
+    #portalWorkspace input, #portalWorkspace select,
+    #portalWorkspace textarea,
+    #portalWorkspace button:not(.module-button) {
+      padding: 11px 12px;
+      border: 1px solid #cbdcd0;
+      border-radius: 9px;
+    }
+
     .field input, .field select, .field textarea {
       width: 100%;
-      padding: 12px;
-      border: 1px solid #cbdcd0;
-      border-radius: 10px;
       background: white;
       color: var(--text);
       outline: none;
     }
 
-    .field input:focus, .field select:focus, .field textarea:focus {
+    .field input:focus, .field select:focus, .field textarea:focus,
+    #portalWorkspace input:focus, #portalWorkspace select:focus,
+    #portalWorkspace textarea:focus {
       border-color: var(--green);
-      box-shadow: 0 0 0 3px rgba(8,127,75,.1);
+      box-shadow: 0 0 0 3px #087f4b1a;
+      outline: none;
     }
 
     .form-actions {
@@ -233,73 +230,106 @@
     .muted { color: var(--muted); }
     .small-text { font-size: 12px; line-height: 1.5; }
 
-    .portal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .portal-header h2 { margin: 0 0 6px; }
-    .portal-header p { margin: 0; color: var(--muted); }
-
-    .module-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin: 18px 0;
-    }
-
-    .module-button {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 13px;
-      padding: 17px 10px;
-      color: var(--text);
-      font-weight: 700;
-      min-height: 75px;
-      box-shadow: 0 3px 12px rgba(0,0,0,.03);
-    }
-
-    .module-button:hover {
-      border-color: var(--green);
-      background: var(--green-light);
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin: 18px 0;
-    }
-
-    .stat {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 17px;
-    }
-
-    .stat-label { font-size: 12px; color: var(--muted); }
-    .stat-value { font-size: 27px; font-weight: 800; margin-top: 8px; }
-
-    .workspace { margin-top: 18px; }
-
     .status-message {
       display: none;
       padding: 12px 14px;
       margin: 12px 0;
       border-radius: 10px;
-      background: var(--green-light);
-      color: var(--green-dark);
+      background: var(--light);
       overflow-wrap: anywhere;
     }
 
-    .status-message.error {
-      background: #fff0f0;
-      color: var(--red);
+    .status-message:not(:empty) { display: block; }
+
+    .status-message.error { background: #fff0f0; color: var(--red); }
+
+    #staffPortalScreen { min-width: 0; }
+
+    #thhNavigation {
+      position: relative;
+      padding: 10px 0 14px !important;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #thhNavigation button {
+      min-height: 42px;
+      padding: 10px 14px !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 10px !important;
+      background: white;
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    #thhNavigation button:hover,
+    #thhNavigation button:focus {
+      background: var(--light);
+      border-color: var(--green) !important;
+    }
+
+    #portalWorkspace {
+      margin-top: 18px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    #portalWorkspace h2 { color: var(--dark); }
+    #portalWorkspace form { margin: 12px 0; }
+    #portalWorkspace label {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 5px 7px 9px 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    #portalWorkspace button {
+      background: var(--green);
+      color: white;
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 13px;
+      margin: 3px;
+      font-weight: 600;
+    }
+
+    #portalWorkspace button:disabled { opacity: .6; }
+
+    #portalWorkspace table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: white;
+    }
+
+    #portalWorkspace th,
+    #portalWorkspace td {
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    #portalWorkspace th {
+      background: var(--light);
+      color: var(--dark);
+      white-space: nowrap;
+    }
+
+    #portalWorkspace tr:hover td { background: #f8fcf9; }
+
+    #portalWorkspace > section {
+      background: white;
+      border-radius: 15px;
+    }
+
+    #thhToast {
+      overflow-wrap: anywhere;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .footer {
@@ -310,20 +340,25 @@
     }
 
     @media (max-width: 700px) {
-      .container { margin-top: 17px; }
+      .container { margin-top: 17px; padding-left: 12px; padding-right: 12px; }
       .grid, .form-grid { grid-template-columns: 1fr; }
-      .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .topbar { padding: 15px; }
+      .topbar { padding: 14px; }
       .brand h1 { font-size: 17px; }
       .brand-logo { width: 42px; height: 42px; }
       .welcome { padding: 23px 18px; }
       .card, .panel { padding: 17px; }
+      #thhNavigation { gap: 6px !important; }
+      #thhNavigation button { flex: 1 1 29%; }
+      #portalWorkspace table { min-width: 620px; }
+      #portalWorkspace > section { overflow-x: auto; }
+      #portalWorkspace input, #portalWorkspace select,
+      #portalWorkspace textarea { max-width: 100%; }
     }
 
     @media (max-width: 380px) {
       .online { display: none; }
-      .module-grid { grid-template-columns: 1fr; }
+      .brand h1 { font-size: 15px; }
+      .form-actions .btn { flex: 1 1 auto; }
     }
   </style>
 </head>
@@ -358,32 +393,32 @@
           <div class="card-icon">🛡️</div>
           <h3>HR / Management</h3>
           <p>Manage people, rooms, attendance, requests, cab entries, food records and reports.</p>
-          <button class="btn full" onclick="showScreen('staffLoginScreen')">Staff Login</button>
-          <button class="btn secondary full" onclick="showScreen('staffRegisterScreen')">Register HR / Management / Admin</button>
+          <button class="btn full" type="button" onclick="openStaffLogin()">Staff Login</button>
+          <button class="btn secondary full" type="button" onclick="openStaffRegister()">Register HR / Management / Admin</button>
         </article>
 
         <article class="card">
           <div class="card-icon">👨‍🏭</div>
           <h3>Employee Portal</h3>
-          <p>Access your profile, personal QR, food scanner and requests to HR.</p>
-          <button class="btn full" onclick="showScreen('employeeLoginScreen')">Employee Login</button>
+          <p>Access your account, update your shift and submit requests to HR.</p>
+          <button class="btn full" type="button" onclick="openEmployeeLogin()">Employee Login</button>
         </article>
 
         <article class="card">
           <div class="card-icon">🎓</div>
           <h3>Internship Portal</h3>
-          <p>Access your intern profile, personal QR, food scanner and HR requests.</p>
-          <button class="btn full" onclick="showScreen('internLoginScreen')">Intern Login</button>
+          <p>Access your internship account and submit requests to HR.</p>
+          <button class="btn full" type="button" onclick="openInternLogin()">Intern Login</button>
         </article>
       </div>
     </section>
 
     <!-- STAFF LOGIN -->
-    <section id="staffLoginScreen" class="screen">
+    <section id="staffLoginScreen" class="screen" hidden>
       <div class="panel">
         <h2>Staff Login</h2>
         <p class="muted">HR, Management and Admin access.</p>
-        <div id="staffLoginMessage" class="status-message"></div>
+        <div id="staffLoginMessage" class="status-message" role="status"></div>
 
         <form id="staffLoginForm">
           <div class="field">
@@ -396,18 +431,18 @@
           </div>
           <div class="form-actions">
             <button class="btn" type="submit">Login</button>
-            <button class="btn secondary" type="button" onclick="showScreen('homeScreen')">Back</button>
+            <button class="btn secondary" type="button" onclick="showHome()">Back</button>
           </div>
         </form>
       </div>
     </section>
 
     <!-- STAFF REGISTRATION -->
-    <section id="staffRegisterScreen" class="screen">
+    <section id="staffRegisterScreen" class="screen" hidden>
       <div class="panel">
         <h2>Staff Registration</h2>
         <p class="muted">An authorized master key is required for staff registration.</p>
-        <div id="staffRegisterMessage" class="status-message"></div>
+        <div id="staffRegisterMessage" class="status-message" role="status"></div>
 
         <form id="staffRegisterForm">
           <div class="form-grid">
@@ -434,11 +469,11 @@
             </div>
             <div class="field">
               <label for="staffRegisterPassword">Password</label>
-              <input id="staffRegisterPassword" name="password" type="password" autocomplete="new-password" required>
+              <input id="staffRegisterPassword" name="password" type="password" autocomplete="new-password" minlength="8" required>
             </div>
             <div class="field">
               <label for="staffRegisterConfirmPassword">Confirm Password</label>
-              <input id="staffRegisterConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required>
+              <input id="staffRegisterConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
             </div>
           </div>
 
@@ -449,18 +484,18 @@
 
           <div class="form-actions">
             <button class="btn" type="submit">Register Staff</button>
-            <button class="btn secondary" type="button" onclick="showScreen('homeScreen')">Back</button>
+            <button class="btn secondary" type="button" onclick="showHome()">Back</button>
           </div>
         </form>
       </div>
     </section>
 
-    <!-- EMPLOYEE LOGIN / REGISTRATION HOST -->
-    <section id="employeeLoginScreen" class="screen">
+    <!-- EMPLOYEE LOGIN -->
+    <section id="employeeLoginScreen" class="screen" hidden>
       <div class="panel">
         <h2>Employee Login</h2>
         <p class="muted">Sign in with your employee account.</p>
-        <div id="employeeLoginMessage" class="status-message"></div>
+        <div id="employeeLoginMessage" class="status-message" role="status"></div>
 
         <form id="employeeLoginForm">
           <div class="field">
@@ -473,7 +508,7 @@
           </div>
           <div class="form-actions">
             <button class="btn" type="submit">Login</button>
-            <button class="btn secondary" type="button" onclick="showScreen('homeScreen')">Back</button>
+            <button class="btn secondary" type="button" onclick="showHome()">Back</button>
           </div>
         </form>
 
@@ -481,12 +516,12 @@
       </div>
     </section>
 
-    <!-- INTERN LOGIN / REGISTRATION HOST -->
-    <section id="internLoginScreen" class="screen">
+    <!-- INTERN LOGIN -->
+    <section id="internLoginScreen" class="screen" hidden>
       <div class="panel">
         <h2>Internship Login</h2>
         <p class="muted">Sign in with your internship account.</p>
-        <div id="internLoginMessage" class="status-message"></div>
+        <div id="internLoginMessage" class="status-message" role="status"></div>
 
         <form id="internLoginForm">
           <div class="field">
@@ -499,7 +534,7 @@
           </div>
           <div class="form-actions">
             <button class="btn" type="submit">Login</button>
-            <button class="btn secondary" type="button" onclick="showScreen('homeScreen')">Back</button>
+            <button class="btn secondary" type="button" onclick="showHome()">Back</button>
           </div>
         </form>
 
@@ -507,96 +542,26 @@
       </div>
     </section>
 
-    <!-- STAFF PORTAL -->
-    <section id="staffPortalScreen" class="screen">
-      <div class="portal-header">
-        <div>
-          <h2>Staff Dashboard</h2>
-          <p>Welcome, <strong id="portalStaffName">Staff</strong></p>
-          <p class="small-text">
-            Role: <span id="portalStaffRole">Staff</span>
-            · Staff ID: <span id="portalStaffId">-</span>
-          </p>
-        </div>
-        <div class="form-actions">
-          <button class="btn secondary" onclick="showScreen('homeScreen')">Home</button>
-          <button class="btn danger" onclick="logout()">Logout</button>
-        </div>
-      </div>
+    <!-- STAFF PORTAL: app.js creates the dynamic header and navigation -->
+    <section id="staffPortalScreen" class="screen" hidden>
+      <div id="staffPortalMessage" class="status-message" role="status"></div>
 
-      <div id="staffPortalMessage" class="status-message"></div>
-
-      <div class="stats-grid">
-        <div class="stat">
-          <div class="stat-label">Employees</div>
-          <div class="stat-value" id="statEmployees">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Interns</div>
-          <div class="stat-value" id="statInterns">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Hostel IN</div>
-          <div class="stat-value" id="statHostelIn">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Pending Requests</div>
-          <div class="stat-value" id="statRequests">-</div>
-        </div>
-      </div>
-
-      <h3 class="section-heading">Management Modules</h3>
-
-      <div class="module-grid">
-        <button class="module-button" onclick="portalModule('Employee Management')">👥<br>Employee Management</button>
-        <button class="module-button" onclick="portalModule('Intern Management')">🎓<br>Intern Management</button>
-        <button class="module-button" onclick="portalModule('Room Management')">🏠<br>Room Management</button>
-        <button class="module-button" onclick="portalModule('Attendance')">📋<br>Shift Attendance</button>
-        <button class="module-button" onclick="portalModule('Leave Management')">📝<br>HR Requests</button>
-        <button class="module-button" onclick="portalModule('Cab Management')">🚌<br>Cab Management</button>
-        <button class="module-button" onclick="portalModule('Food Management')">🍱<br>Food Management</button>
-        <button class="module-button" onclick="portalModule('Reports')">📊<br>Reports & Export</button>
-      </div>
-
-      <div id="portalWorkspace" class="workspace">
+      <div id="portalWorkspace">
         <div class="panel">
-          <h3>Quick Access</h3>
-          <p class="muted">Choose a module above to open its workspace.</p>
+          <h2>TEXMO Hostel Hub</h2>
+          <p class="muted">Loading your management workspace...</p>
         </div>
       </div>
     </section>
 
-    <!-- PERSON PORTAL IS CREATED BY app.js -->
-    <section id="personPortalScreen" class="screen"></section>
+    <!-- Reserved for future employee portal use -->
+    <section id="personPortalScreen" class="screen" hidden></section>
 
   </main>
 
   <footer class="footer">
     TEXMO Hostel Hub · Hostel Management System
   </footer>
-
-  <script>
-    function showScreen(screenId) {
-      document.querySelectorAll('.screen').forEach(function(screen) {
-        screen.classList.remove('active');
-      });
-
-      var target = document.getElementById(screenId);
-      if (target) {
-        target.classList.add('active');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    }
-
-    function showMessage(message, isError, elementId) {
-      var element = document.getElementById(elementId || 'staffPortalMessage');
-      if (!element) return;
-
-      element.textContent = message;
-      element.classList.toggle('error', Boolean(isError));
-      element.style.display = 'block';
-    }
-  </script>
 
   <script src="./app.js" defer></script>
 </body>
