@@ -1,1244 +1,927 @@
-
-/* =========================================================
-   TEXMO HOSTEL HUB
-   Frontend Application
-   Uses the existing Cloudflare Worker and D1 database.
-   ========================================================= */
-
+(() => {
 "use strict";
 
-const API_BASE = "";
-const TOKEN_KEY = "thh_session_token";
-const USER_KEY = "thh_current_user";
+const API = "";
+const $ = (s, root = document) => root.querySelector(s);
+const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;"
+}[c]));
 
 const DEPARTMENTS = ["PDN", "PDN2", "PDN3", "MDN"];
 const SHIFTS = ["SHIFT 1", "SHIFT 2", "SHIFT 3"];
 
-let currentUser = readStoredUser();
-let currentToken = localStorage.getItem(TOKEN_KEY) || "";
-let activeSection = "dashboard";
+let token = localStorage.getItem("thh_token") || "";
+let user = null;
+let activeTab = "Dashboard";
+let cameraStream = null;
+let cameraMode = "cab";
+let cachedPeople = { employees: [], interns: [] };
 
-/* -------------------- BASIC HELPERS -------------------- */
+const css = `
+:root{--green:#087f43;--deep:#075c34;--light:#eaf8ef;--ink:#172b21;--muted:#64756a;--line:#dce9df;--white:#fff;--red:#b42318}
+*{box-sizing:border-box}
+body{margin:0;background:#f3f8f4;color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer;border:0;border-radius:10px;padding:11px 15px;background:var(--green);color:#fff;font-weight:650}
+button:hover{filter:brightness(.96)}
+button.secondary{background:#e7f3eb;color:var(--deep)}
+button.danger{background:#b42318}
+button.small{padding:7px 10px;font-size:13px}
+input,select,textarea{width:100%;padding:11px 12px;border:1px solid #cbd9ce;border-radius:10px;background:#fff;color:#172b21;outline-color:var(--green)}
+textarea{min-height:78px;resize:vertical}
+label{display:block;font-weight:650;font-size:13px;margin:0 0 6px}
+.field{margin-bottom:13px;min-width:0}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.top{background:linear-gradient(120deg,#075c34,#0b9a50);color:#fff;padding:20px max(16px,calc((100% - 1200px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-size:21px;font-weight:850;letter-spacing:.2px}
+.sub{opacity:.86;font-size:12px}
+.top button{background:#fff;color:#075c34}
+.wrap{max-width:1200px;margin:auto;padding:18px}
+.nav{display:flex;gap:8px;overflow-x:auto;padding:4px 0 14px}
+.nav button{white-space:nowrap;background:#e4eee7;color:#345343}
+.nav button.on{background:#087f43;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px;box-shadow:0 3px 12px #143f1f08;min-width:0}
+.stat{font-size:28px;font-weight:850;color:var(--green);margin:7px 0;overflow-wrap:anywhere}
+.muted{color:var(--muted);font-size:13px}
+.title{font-size:19px;font-weight:800;margin:0 0 12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.tablewrap{overflow:auto}
+table{border-collapse:collapse;width:100%;min-width:600px;font-size:13px}
+th,td{text-align:left;padding:10px;border-bottom:1px solid #e6eee8;vertical-align:top}
+th{background:#f0f7f2;color:#355541}
+.msg{margin:10px 0;padding:11px 13px;border-radius:10px;background:#e7f3eb;color:#075c34}
+.msg.error{background:#ffeded;color:#a51d18}
+.auth{max-width:470px;margin:5vh auto;padding:20px}
+.logo{font-size:31px;font-weight:900;color:#087f43}
+.hint{font-size:12px;color:#64756a;margin:8px 0}
+.qr{width:min(270px,100%);aspect-ratio:1;object-fit:contain;background:white;border:1px solid var(--line);border-radius:12px}
+video{width:100%;max-height:360px;background:#111;border-radius:12px}
+.hidden{display:none!important}
+.foot{text-align:center;color:#728378;padding:22px;font-size:12px}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wrap{padding:12px}.top{padding:15px}}
+@media(max-width:430px){.formgrid{grid-template-columns:1fr}.grid{gap:8px}.stat{font-size:24px}.card{padding:13px}.brand{font-size:18px}}
+`;
 
-function $(id) {
-  return document.getElementById(id);
-}
-
-function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[char]);
-}
-
-function readStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY) || "null");
-  } catch {
-    return null;
-  }
-}
-
-function saveSession(data) {
-  const token =
-    data?.token ||
-    data?.session_token ||
-    data?.sessionToken ||
-    data?.access_token;
-
-  const user =
-    data?.user ||
-    data?.person ||
-    data?.staff ||
-    data?.profile ||
-    null;
-
-  if (token) {
-    currentToken = token;
-    localStorage.setItem(TOKEN_KEY, token);
-  }
-
-  if (user) {
-    currentUser = user;
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-  }
-}
-
-function showMessage(message, type = "info", targetId = "") {
-  const target = targetId ? $(targetId) : null;
-
-  if (target) {
-    target.textContent = message;
-    target.dataset.type = type;
-    target.style.color =
-      type === "error" ? "#b91c1c" :
-      type === "success" ? "#15803d" : "#475569";
-    return;
-  }
-
-  let toast = $("thhToast");
-
-  if (!toast) {
-    toast = document.createElement("div");
-    toast.id = "thhToast";
-    toast.setAttribute("role", "status");
-    Object.assign(toast.style, {
-      position: "fixed",
-      left: "16px",
-      right: "16px",
-      bottom: "20px",
-      zIndex: "99999",
-      padding: "14px 16px",
-      borderRadius: "12px",
-      background: "#ffffff",
-      color: "#1e293b",
-      boxShadow: "0 5px 24px #0002",
-      fontSize: "14px",
-      fontWeight: "600"
-    });
-    document.body.appendChild(toast);
-  }
-
-  toast.textContent = message;
-  toast.style.borderLeft =
-    `5px solid ${type === "error" ? "#dc2626" :
-      type === "success" ? "#16a34a" : "#2563eb"}`;
-
-  clearTimeout(showMessage.timer);
-  showMessage.timer = setTimeout(() => toast.remove(), 4500);
-}
-
-function setBusy(button, busy, label = "Please wait...") {
-  if (!button) return;
-
-  if (busy) {
-    button.dataset.originalText = button.textContent;
-    button.disabled = true;
-    button.textContent = label;
-  } else {
-    button.disabled = false;
-    button.textContent = button.dataset.originalText || "Submit";
-  }
+document.head.insertAdjacentHTML("beforeend", `<style>${css}</style>`);
+if (!$("#thh-root")) {
+  document.body.innerHTML = `<div id="thh-root"></div>`;
 }
 
 async function api(path, options = {}) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {})
-  };
-
-  if (currentToken) {
-    headers.Authorization = `Bearer ${currentToken}`;
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (token) headers.Authorization = "Bearer " + token;
+  const res = await fetch(API + path, { ...options, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || data.detail || "Request failed");
   }
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    cache: "no-store"
-  });
-
-  const text = await response.text();
-  let data = {};
-
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = { message: text || "Invalid server response." };
-  }
-
-  if (response.status === 401) {
-    clearSession();
-    showMessage("Session expired. Please log in again.", "error");
-  }
-
-  if (!response.ok || data.success === false || data.ok === false) {
-    throw new Error(
-      data.message || data.error || `Request failed (${response.status})`
-    );
-  }
-
   return data;
 }
 
-function postJSON(path, body) {
-  return api(path, {
-    method: "POST",
-    body: JSON.stringify(body)
-  });
+function say(message, error = false) {
+  const box = $("#notice");
+  if (!box) { alert(message); return; }
+  box.className = "msg" + (error ? " error" : "");
+  box.textContent = message;
+  box.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function getArray(data, ...keys) {
-  if (Array.isArray(data)) return data;
-
-  for (const key of keys) {
-    if (Array.isArray(data?.[key])) return data[key];
-  }
-
-  return [];
+function field(label, name, type = "text", value = "", required = false) {
+  return `<div class="field"><label for="${esc(name)}">${esc(label)}</label>
+    <input id="${esc(name)}" name="${esc(name)}" type="${esc(type)}" value="${esc(value)}" ${required ? "required" : ""}></div>`;
 }
 
-function userRole() {
-  return String(
-    currentUser?.role ||
-    currentUser?.user_type ||
-    currentUser?.type ||
-    ""
-  ).toUpperCase();
+function selectField(label, name, options, value = "") {
+  return `<div class="field"><label for="${esc(name)}">${esc(label)}</label>
+    <select id="${esc(name)}" name="${esc(name)}">
+    ${options.map(o => `<option value="${esc(o)}" ${o === value ? "selected" : ""}>${esc(o || "Select")}</option>`).join("")}
+    </select></div>`;
 }
 
-function isManager() {
-  return ["HR", "MANAGEMENT", "ADMIN"].includes(userRole());
+function root(html) {
+  $("#thh-root").innerHTML = html;
 }
 
-/* -------------------- SCREEN NAVIGATION -------------------- */
-
-function showScreen(screenId) {
-  const knownScreens = [
-    "homeScreen",
-    "staffRegisterScreen",
-    "staffLoginScreen",
-    "staffPortalScreen",
-    "employeeLoginScreen",
-    "internLoginScreen"
-  ];
-
-  knownScreens.forEach(id => {
-    const element = $(id);
-    if (!element) return;
-
-    const active = id === screenId;
-    element.hidden = !active;
-    element.classList.toggle("active", active);
-    element.setAttribute("aria-hidden", String(!active));
-  });
-
-  const target = $(screenId);
-  if (target) {
-    target.hidden = false;
-    target.classList.add("active");
-    target.setAttribute("aria-hidden", "false");
-  }
+function isStaffType(type) {
+  return ["STAFF", "HR", "MANAGEMENT", "ADMIN"].includes(type);
 }
 
-function showHome() {
-  showScreen("homeScreen");
-}
+function loginScreen(register = false) {
+  stopCamera();
+  root(`<main class="auth">
+    <section class="card">
+      <div class="logo">THH</div>
+      <div class="title">TEXMO HOSTEL HUB</div>
+      <p class="muted">Hostel Management System</p>
+      <div id="notice" class="hidden"></div>
+      <div class="field"><label for="accountType">Portal</label>
+        <select id="accountType">
+          <option value="STAFF">HR / Management / Admin</option>
+          <option value="EMPLOYEE">Employee</option>
+          <option value="INTERN">Intern</option>
+        </select>
+      </div>
+      <form id="authForm">
+        ${field("Staff ID / Employee ID / Intern ID", "loginId", "text", "", true)}
+        ${field("Password", "loginPassword", "password", "", true)}
+        <div id="registerFields" class="${register ? "" : "hidden"}">
+          ${field("Full name", "regName")}
+          ${field("Mobile number", "regMobile", "tel")}
+          ${selectField("Department", "regDepartment", ["", ...DEPARTMENTS])}
+          ${field("Designation", "regDesignation")}
+          ${selectField("Shift", "regShift", ["", ...SHIFTS])}
+          ${field("Room", "regRoom")}
+          <div class="field"><label for="regRole">Staff role (staff registration only)</label>
+            <select id="regRole"><option>HR</option><option>MANAGEMENT</option><option>ADMIN</option></select>
+          </div>
+          ${field("HR master key (staff registration only)", "masterKey", "password")}
+        </div>
+        <button id="authSubmit" type="submit" style="width:100%">${register ? "Create account" : "Log in"}</button>
+      </form>
+      <div class="actions"><button id="toggleRegister" class="secondary" style="width:100%">${register ? "Back to login" : "New account / Staff registration"}</button></div>
+      <p class="hint">Staff registration requires the authorized master key. No password recovery is enabled.</p>
+    </section>
+    <div class="foot">TEXMO HOSTEL HUB · Secure access</div>
+  </main>`);
 
-function openStaffLogin() {
-  showScreen("staffLoginScreen");
-}
+  $("#toggleRegister").onclick = () => loginScreen(!register);
 
-function openStaffRegister() {
-  showScreen("staffRegisterScreen");
-}
+  $("#accountType").onchange = () => {
+    const staff = isStaffType($("#accountType").value);
+    $("#regRole").closest(".field").classList.toggle("hidden", !staff);
+    $("#masterKey").closest(".field").classList.toggle("hidden", !staff);
+  };
 
-function openEmployeeLogin() {
-  showScreen("employeeLoginScreen");
-}
-
-function openInternLogin() {
-  showScreen("internLoginScreen");
-}
-
-/* Keep compatibility with existing HTML onclick attributes. */
-window.showScreen = showScreen;
-window.showHome = showHome;
-window.openStaffLogin = openStaffLogin;
-window.openStaffRegister = openStaffRegister;
-window.openEmployeeLogin = openEmployeeLogin;
-window.openInternLogin = openInternLogin;
-
-/* -------------------- LOGIN -------------------- */
-
-async function loginAccount(kind, identifier, password, button, messageId) {
-  if (!identifier || !password) {
-    showMessage("Enter your ID and password.", "error", messageId);
-    return;
-  }
-
-  setBusy(button, true, "Signing in...");
-
-  try {
-    const data = await postJSON("/api/login", {
-      type: kind,
-      user_type: kind,
-      login_type: kind,
-      identifier,
-      id: identifier,
-      staff_id: identifier,
-      employee_id: identifier,
-      intern_id: identifier,
-      password
-    });
-
-    saveSession(data);
-
-    if (!currentToken) {
-      throw new Error(
-        "Login response did not include a session token. Check worker.js."
-      );
-    }
-
-    if (!currentUser) {
-      try {
-        const me = await api("/api/me");
-        currentUser = me.user || me.person || me.staff || me;
-        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
-      } catch {
-        currentUser = {
-          id: identifier,
-          staff_id: identifier,
-          role: kind
-        };
-        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
-      }
-    }
-
-    showScreen("staffPortalScreen");
-    await renderPortal();
-    showMessage("Login successful.", "success");
-  } catch (error) {
-    showMessage(error.message || "Login failed.", "error", messageId);
-  } finally {
-    setBusy(button, false);
-  }
-}
-
-function bindLoginForms() {
-  const staffForm = $("staffLoginForm");
-  if (staffForm) {
-    staffForm.addEventListener("submit", event => {
-      event.preventDefault();
-
-      loginAccount(
-        "STAFF",
-        $("staffLoginId")?.value.trim(),
-        $("staffLoginPassword")?.value,
-        staffForm.querySelector('[type="submit"]'),
-        "staffLoginMessage"
-      );
-    });
-  }
-
-  const employeeForm = $("employeeLoginForm");
-  if (employeeForm) {
-    employeeForm.addEventListener("submit", event => {
-      event.preventDefault();
-
-      loginAccount(
-        "EMPLOYEE",
-        $("employeeLoginId")?.value.trim(),
-        $("employeeLoginPassword")?.value,
-        employeeForm.querySelector('[type="submit"]'),
-        "employeeLoginMessage"
-      );
-    });
-  }
-
-  const internForm = $("internLoginForm");
-  if (internForm) {
-    internForm.addEventListener("submit", event => {
-      event.preventDefault();
-
-      loginAccount(
-        "INTERN",
-        $("internLoginId")?.value.trim(),
-        $("internLoginPassword")?.value,
-        internForm.querySelector('[type="submit"]'),
-        "internLoginMessage"
-      );
-    });
-  }
-}
-
-/* -------------------- STAFF REGISTRATION -------------------- */
-
-function bindStaffRegistration() {
-  const form = $("staffRegisterForm");
-  if (!form) return;
-
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
-
-    const name = $("staffRegisterName")?.value.trim();
-    const staffId = $("staffRegisterId")?.value.trim();
-    const mobile = $("staffRegisterMobile")?.value.trim();
-    const role = $("staffRegisterRole")?.value;
-    const password = $("staffRegisterPassword")?.value;
-    const confirmPassword = $("staffRegisterConfirmPassword")?.value;
-    const masterKey = $("staffMasterKey")?.value;
-
-    if (!name || !staffId || !password || !masterKey) {
-      showMessage("Complete all required fields.", "error");
-      return;
-    }
-
-    if (password.length < 8) {
-      showMessage("Use a password with at least 8 characters.", "error");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      showMessage("Passwords do not match.", "error");
-      return;
-    }
-
-    const button = form.querySelector('[type="submit"]');
-    setBusy(button, true, "Registering...");
-
+  $("#authForm").onsubmit = async e => {
+    e.preventDefault();
+    const type = $("#accountType").value;
+    const id = $("#loginId").value.trim();
+    const password = $("#loginPassword").value;
     try {
-      await postJSON("/api/register", {
-        type: "STAFF",
-        user_type: "STAFF",
-        name,
-        staff_id: staffId,
-        id: staffId,
-        mobile,
-        role,
-        password,
-        confirm_password: confirmPassword,
-        master_key: masterKey,
-        masterKey
+      if (register) {
+        const staff = isStaffType(type);
+        const payload = {
+          type: staff ? $("#regRole").value : type,
+          id,
+          password,
+          name: $("#regName").value.trim(),
+          mobile: $("#regMobile").value.trim(),
+          department: $("#regDepartment").value.trim().toUpperCase(),
+          designation: $("#regDesignation").value.trim(),
+          shift: $("#regShift").value.trim().toUpperCase(),
+          room: $("#regRoom").value.trim()
+        };
+        await api("/api/register", {
+          method: "POST",
+          headers: { "X-Master-Key": $("#masterKey").value },
+          body: JSON.stringify(payload)
+        });
+        loginScreen(false);
+        say("Account created. Login using your ID and password.");
+        return;
+      }
+
+      const result = await api("/api/login", {
+        method: "POST",
+        body: JSON.stringify({ type, id, password })
       });
-
-      showMessage(
-        "Registration submitted. You can now try logging in.",
-        "success"
-      );
-
-      form.reset();
-      showScreen("staffLoginScreen");
-    } catch (error) {
-      showMessage(error.message || "Registration failed.", "error");
-    } finally {
-      setBusy(button, false);
+      token = result.token;
+      user = result.user;
+      localStorage.setItem("thh_token", token);
+      await enterPortal();
+    } catch (err) {
+      say(err.message, true);
     }
-  });
+  };
+
+  $("#accountType").dispatchEvent(new Event("change"));
 }
 
-/* -------------------- LOGOUT -------------------- */
+async function enterPortal() {
+  try {
+    const result = await api("/api/me");
+    user = result.user || user;
+    if (user.kind === "STAFF") await renderManager();
+    else await renderPerson(result);
+  } catch (err) {
+    localStorage.removeItem("thh_token");
+    token = "";
+    user = null;
+    loginScreen();
+    say(err.message, true);
+  }
+}
 
-function clearSession() {
-  currentToken = "";
-  currentUser = null;
+function header() {
+  return `<header class="top">
+    <div>
+      <div class="brand">TEXMO HOSTEL HUB</div>
+      <div class="sub">${esc(user?.name || "")} · ${esc(user?.role || user?.person_type || "")}</div>
+    </div>
+    <button id="logout">Logout</button>
+  </header>
+  <div class="wrap">
+    <div id="notice" class="hidden"></div>
+    <nav class="nav" id="nav"></nav>
+    <main id="page"></main>
+  </div>
+  <div class="foot">TEXMO HOSTEL HUB · Staff and Hostel Portal</div>`;
+}
 
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+function setShell(tabs, profile) {
+  root(header());
+  $("#logout").onclick = logout;
+  $("#nav").innerHTML = tabs.map(t =>
+    `<button data-tab="${esc(t)}" class="${t === activeTab ? "on" : ""}">${esc(t)}</button>`
+  ).join("");
+  $("#nav").querySelectorAll("button").forEach(b => b.onclick = () => {
+    activeTab = b.dataset.tab;
+    $("#nav").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    renderTab(profile);
+  });
 }
 
 function logout() {
-  clearSession();
-  activeSection = "dashboard";
-  showHome();
-  showMessage("You have been logged out.", "success");
+  stopCamera();
+  token = "";
+  user = null;
+  activeTab = "Dashboard";
+  localStorage.removeItem("thh_token");
+  loginScreen();
 }
-
 window.logout = logout;
 
-/* -------------------- PORTAL LAYOUT -------------------- */
-
-function ensurePortalLayout() {
-  const portal = $("staffPortalScreen");
-  if (!portal) return null;
-
-  let workspace = $("portalWorkspace");
-
-  if (!workspace) {
-    workspace = document.createElement("main");
-    workspace.id = "portalWorkspace";
-    portal.appendChild(workspace);
-  }
-
-  let header = $("thhDynamicHeader");
-
-  if (!header) {
-    header = document.createElement("section");
-    header.id = "thhDynamicHeader";
-    header.style.cssText =
-      "display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px;margin:12px 0;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;";
-
-    portal.prepend(header);
-  }
-
-  const name =
-    currentUser?.name ||
-    currentUser?.staff_name ||
-    currentUser?.employee_name ||
-    "TEXMO User";
-
-  const id =
-    currentUser?.staff_id ||
-    currentUser?.employee_id ||
-    currentUser?.intern_id ||
-    currentUser?.id ||
-    "";
-
-  header.innerHTML = `
-    <div>
-      <strong style="font-size:18px;color:#166534">
-        ${escapeHTML(name)}
-      </strong>
-      <div style="font-size:13px;color:#475569;margin-top:4px">
-        ${escapeHTML(userRole())} · ${escapeHTML(id)}
-      </div>
-    </div>
-    <button id="thhLogoutButton" type="button"
-      style="padding:10px 16px;border:0;border-radius:9px;background:#166534;color:white;font-weight:600">
-      Logout
-    </button>
-  `;
-
-  $("thhLogoutButton").onclick = logout;
-
-  let nav = $("thhNavigation");
-
-  if (!nav) {
-    nav = document.createElement("nav");
-    nav.id = "thhNavigation";
-    nav.setAttribute("aria-label", "Hostel management navigation");
-    nav.style.cssText =
-      "display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;padding:4px;";
-    header.after(nav);
-  }
-
-  const sections = [
-    ["dashboard", "Dashboard"],
-    ["people", "Employees"],
-    ["rooms", "Rooms"],
-    ["attendance", "Attendance"],
-    ["cab", "Cab"],
-    ["food", "Food"],
-    ["reports", "Reports"],
-    ["requests", "Requests"]
-  ];
-
-  nav.innerHTML = sections.map(([key, label]) => `
-    <button type="button" data-section="${key}"
-      style="padding:10px 13px;border:1px solid #d1d5db;border-radius:9px;background:#fff;color:#166534;font-weight:600">
-      ${label}
-    </button>
-  `).join("");
-
-  nav.querySelectorAll("[data-section]").forEach(button => {
-    button.addEventListener("click", () => openSection(button.dataset.section));
-  });
-
-  return workspace;
+async function renderManager() {
+  activeTab = "Dashboard";
+  setShell(["Dashboard", "People", "Rooms", "Food QR", "Cab Scanner", "Attendance", "Requests", "Reports"]);
+  await renderTab();
 }
 
-async function renderPortal() {
-  const workspace = ensurePortalLayout();
-  if (!workspace) return;
-
-  if (!currentUser) {
-    showHome();
-    return;
-  }
-
-  if (!isManager()) {
-    renderEmployeeHome(workspace);
-    return;
-  }
-
-  await openSection(activeSection);
+async function renderPerson(profile) {
+  activeTab = "Profile";
+  setShell(["Profile", "My QR", "Food Scanner", "Requests to HR"], profile);
+  await renderTab(profile);
 }
 
-function renderEmployeeHome(workspace) {
-  workspace.innerHTML = `
-    <section style="padding:18px;border:1px solid #e2e8f0;border-radius:14px;background:#fff">
-      <h2>My Hostel Portal</h2>
-      <p>Welcome, ${escapeHTML(currentUser?.name || "Employee")}.</p>
-      <button type="button" id="myRefreshButton">Refresh my details</button>
-      <div id="myAccountDetails" style="margin-top:16px"></div>
-      <h3>Update My Shift</h3>
-      <form id="myShiftForm">
-        <label for="myShift">Shift</label>
-        <select id="myShift" required>
-          ${SHIFTS.map(s => `<option>${s}</option>`).join("")}
-        </select>
-        <button type="submit">Update Shift</button>
-      </form>
-      <h3>My Requests</h3>
-      <form id="myRequestForm">
-        <label for="myRequestType">Request type</label>
-        <select id="myRequestType" required>
-          <option value="LEAVE">Leave</option>
-          <option value="HOSTEL_OUT">Hostel out</option>
-          <option value="OTHER">Other</option>
-        </select>
-        <label for="myRequestFrom">From date</label>
-        <input id="myRequestFrom" type="date" required>
-        <label for="myRequestTo">To date</label>
-        <input id="myRequestTo" type="date" required>
-        <label for="myRequestRemarks">Remarks</label>
-        <textarea id="myRequestRemarks" required maxlength="500"></textarea>
-        <button type="submit">Submit Request</button>
-      </form>
-      <div id="myRequestsList" style="margin-top:16px"></div>
-    </section>
-  `;
-
-  $("myRefreshButton").onclick = loadMyDetails;
-  $("myShiftForm").onsubmit = submitMyShift;
-  $("myRequestForm").onsubmit = submitMyRequest;
-
-  loadMyDetails();
-  loadMyRequests();
-}
-
-/* -------------------- SECTION ROUTER -------------------- */
-
-async function openSection(section) {
-  if (!isManager()) return;
-
-  activeSection = section;
-
-  const workspace = ensurePortalLayout();
-  if (!workspace) return;
-
-  workspace.innerHTML = `
-    <section style="padding:18px;background:#fff;border:1px solid #e2e8f0;border-radius:14px">
-      <p>Loading ${escapeHTML(section)}...</p>
-    </section>
-  `;
-
+async function renderTab(profile) {
+  stopCamera();
+  const page = $("#page");
+  if (!page) return;
+  page.innerHTML = `<section class="card">Loading...</section>`;
   try {
-    switch (section) {
-      case "dashboard":
-        await loadDashboard(workspace);
-        break;
-      case "people":
-        await loadPeople(workspace);
-        break;
-      case "rooms":
-        await loadRooms(workspace);
-        break;
-      case "attendance":
-        await loadAttendance(workspace);
-        break;
-      case "cab":
-        await loadCab(workspace);
-        break;
-      case "food":
-        await loadFood(workspace);
-        break;
-      case "reports":
-        await loadReports(workspace);
-        break;
-      case "requests":
-        await loadRequests(workspace);
-        break;
-      default:
-        workspace.innerHTML = "<p>Section not found.</p>";
-    }
-  } catch (error) {
-    workspace.innerHTML = `
-      <section style="padding:18px;border:1px solid #fecaca;border-radius:12px">
-        <h3>Unable to load ${escapeHTML(section)}</h3>
-        <p>${escapeHTML(error.message)}</p>
-        <button type="button" onclick="openSection('${section}')">Retry</button>
-      </section>
-    `;
-  }
-}
-
-window.openSection = openSection;
-
-/* -------------------- DASHBOARD -------------------- */
-
-async function loadDashboard(workspace) {
-  const data = await api("/api/dashboard");
-  const stats = data.summary || data.dashboard || data;
-
-  const cards = [
-    ["Employees", stats.employees ?? stats.total_employees ?? 0],
-    ["Interns", stats.interns ?? stats.total_interns ?? 0],
-    ["Rooms", stats.rooms ?? stats.total_rooms ?? 0],
-    ["Pending Requests", stats.pending_requests ?? 0],
-    ["Cab Entries Today", stats.cab_today ?? 0],
-    ["Food Entries Today", stats.food_today ?? 0],
-    ["Attendance Today", stats.attendance_today ?? 0]
-  ];
-
-  workspace.innerHTML = `
-    <h2>Dashboard</h2>
-    <p style="color:#64748b">TEXMO Hostel Hub overview</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px">
-      ${cards.map(([label, value]) => `
-        <article style="padding:16px;border:1px solid #d1fae5;background:#f0fdf4;border-radius:12px">
-          <div style="font-size:13px;color:#475569">${escapeHTML(label)}</div>
-          <strong style="display:block;font-size:26px;color:#166534;margin-top:8px">
-            ${escapeHTML(value)}
-          </strong>
-        </article>
-      `).join("")}
-    </div>
-    <button type="button" id="refreshDashboard" style="margin-top:16px">Refresh Dashboard</button>
-  `;
-
-  $("refreshDashboard").onclick = () => openSection("dashboard");
-}
-
-/* -------------------- PEOPLE MANAGEMENT -------------------- */
-
-async function loadPeople(workspace) {
-  const data = await api("/api/people");
-  const people = getArray(data, "people", "employees", "results", "data");
-
-  workspace.innerHTML = `
-    <h2>Employee & Intern Management</h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <input id="peopleSearch" placeholder="Search ID or name">
-      <select id="peopleDepartment">
-        <option value="">All departments</option>
-        ${DEPARTMENTS.map(d => `<option>${d}</option>`).join("")}
-      </select>
-      <button type="button" id="peopleReload">Refresh</button>
-    </div>
-    <div id="peopleTableWrap"></div>
-  `;
-
-  function drawPeople() {
-    const search = $("peopleSearch").value.toLowerCase();
-    const department = $("peopleDepartment").value;
-
-    const filtered = people.filter(person => {
-      const matchesSearch = [
-        person.name, person.employee_id, person.intern_id,
-        person.id, person.department
-      ].some(value => String(value || "").toLowerCase().includes(search));
-
-      return matchesSearch &&
-        (!department || person.department === department);
-    });
-
-    $("peopleTableWrap").innerHTML = `
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr>
-            <th align="left">ID</th><th align="left">Name</th>
-            <th align="left">Department</th><th align="left">Shift</th>
-            <th align="left">Room</th><th align="left">Status</th>
-          </tr></thead>
-          <tbody>
-            ${filtered.map(person => `
-              <tr>
-                <td>${escapeHTML(person.employee_id || person.intern_id || person.id)}</td>
-                <td>${escapeHTML(person.name)}</td>
-                <td>${escapeHTML(person.department)}</td>
-                <td>${escapeHTML(person.shift)}</td>
-                <td>${escapeHTML(person.room)}</td>
-                <td>${escapeHTML(person.status || person.hostel_status)}</td>
-              </tr>
-            `).join("") || `<tr><td colspan="6">No matching records.</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-      <p style="color:#64748b;font-size:13px">
-        ${filtered.length} record(s)
-      </p>
-    `;
-  }
-
-  $("peopleSearch").addEventListener("input", drawPeople);
-  $("peopleDepartment").addEventListener("change", drawPeople);
-  $("peopleReload").onclick = () => openSection("people");
-
-  drawPeople();
-}
-
-/* -------------------- ROOMS -------------------- */
-
-async function loadRooms(workspace) {
-  const data = await api("/api/rooms");
-  const rooms = getArray(data, "rooms", "results", "data");
-
-  workspace.innerHTML = `
-    <h2>Room Management</h2>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr>
-          <th align="left">Room</th>
-          <th align="left">Block</th>
-          <th align="left">Status</th>
-        </tr></thead>
-        <tbody>
-          ${rooms.map(room => `
-            <tr>
-              <td>${escapeHTML(room.room_number || room.room)}</td>
-              <td>${escapeHTML(room.block)}</td>
-              <td>${escapeHTML(room.status)}</td>
-            </tr>
-          `).join("") || `<tr><td colspan="3">No room records returned.</td></tr>`}
-        </tbody>
-      </table>
-    </div>
-    <button type="button" id="roomsReload" style="margin-top:12px">Refresh Rooms</button>
-  `;
-
-  $("roomsReload").onclick = () => openSection("rooms");
-}
-
-/* -------------------- ATTENDANCE -------------------- */
-
-async function loadAttendance(workspace) {
-  const today = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Kolkata"
-  });
-
-  workspace.innerHTML = `
-    <h2>Shift Attendance</h2>
-    <form id="attendanceFilter" style="display:flex;gap:8px;flex-wrap:wrap">
-      <label>Date <input id="attendanceDate" type="date" value="${today}" required></label>
-      <label>Shift
-        <select id="attendanceShift">
-          <option value="">All shifts</option>
-          ${SHIFTS.map(s => `<option>${s}</option>`).join("")}
-        </select>
-      </label>
-      <button type="submit">Load Attendance</button>
-    </form>
-    <div id="attendanceResults" style="margin-top:16px"></div>
-  `;
-
-  $("attendanceFilter").onsubmit = async event => {
-    event.preventDefault();
-
-    const date = $("attendanceDate").value;
-    const shift = $("attendanceShift").value;
-    const params = new URLSearchParams({ date });
-
-    if (shift) params.set("shift", shift);
-
-    const result = await api(`/api/attendance?${params}`);
-    const rows = getArray(result, "attendance", "records", "results", "data");
-
-    $("attendanceResults").innerHTML = `
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr>
-            <th align="left">ID</th><th align="left">Name</th>
-            <th align="left">Department</th><th align="left">Shift</th>
-            <th align="left">Status</th>
-          </tr></thead>
-          <tbody>
-            ${rows.map(row => `
-              <tr>
-                <td>${escapeHTML(row.person_id || row.employee_id || row.id)}</td>
-                <td>${escapeHTML(row.name)}</td>
-                <td>${escapeHTML(row.department)}</td>
-                <td>${escapeHTML(row.shift)}</td>
-                <td>${escapeHTML(row.attendance_status || row.status || "NOT_RECORDED")}</td>
-              </tr>
-            `).join("") || `<tr><td colspan="5">No attendance records found.</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-      <p style="font-size:13px;color:#64748b">
-        Missing records are not automatically confirmed absences.
-      </p>
-    `;
-  };
-
-  $("attendanceFilter").requestSubmit();
-}
-
-/* -------------------- CAB -------------------- */
-
-async function loadCab(workspace) {
-  workspace.innerHTML = `
-    <h2>Cab Entry</h2>
-    <p>Scan an active employee QR token to record a cab entry.</p>
-    <form id="cabScanForm">
-      <label>Employee QR token
-        <input id="cabToken" autocomplete="off" required maxlength="500">
-      </label>
-      <label>Shift
-        <select id="cabShift" required>
-          ${SHIFTS.map(s => `<option>${s}</option>`).join("")}
-        </select>
-      </label>
-      <button type="submit">Record Cab Entry</button>
-    </form>
-    <p id="cabScanMessage" role="status"></p>
-  `;
-
-  $("cabScanForm").onsubmit = async event => {
-    event.preventDefault();
-
-    const button = event.currentTarget.querySelector('[type="submit"]');
-    setBusy(button, true, "Recording...");
-
-    try {
-      const token = $("cabToken").value.trim();
-
-      const result = await postJSON("/api/cab/scan", {
-        token,
-        qr_token: token,
-        shift: $("cabShift").value
-      });
-
-      showMessage(
-        result.message || "Cab scan submitted.",
-        "success",
-        "cabScanMessage"
-      );
-
-      $("cabToken").value = "";
-    } catch (error) {
-      showMessage(error.message, "error", "cabScanMessage");
-    } finally {
-      setBusy(button, false);
-    }
-  };
-}
-
-/* -------------------- FOOD -------------------- */
-
-async function loadFood(workspace) {
-  workspace.innerHTML = `
-    <h2>Food Entry</h2>
-    <p>Scan a valid food QR code for the applicable meal.</p>
-    <form id="foodScanForm">
-      <label>Food QR token
-        <input id="foodToken" autocomplete="off" required maxlength="500">
-      </label>
-      <label>Meal
-        <select id="foodMeal" required>
-          <option value="BREAKFAST">Breakfast</option>
-          <option value="LUNCH">Lunch</option>
-          <option value="DINNER">Dinner</option>
-        </select>
-      </label>
-      <button type="submit">Record Food Entry</button>
-    </form>
-    <p id="foodScanMessage" role="status"></p>
-  `;
-
-  $("foodScanForm").onsubmit = async event => {
-    event.preventDefault();
-
-    const button = event.currentTarget.querySelector('[type="submit"]');
-    setBusy(button, true, "Recording...");
-
-    try {
-      const token = $("foodToken").value.trim();
-
-      const result = await postJSON("/api/food/scan", {
-        token,
-        qr_token: token,
-        meal_type: $("foodMeal").value
-      });
-
-      showMessage(
-        result.message || "Food scan submitted.",
-        "success",
-        "foodScanMessage"
-      );
-
-      $("foodToken").value = "";
-    } catch (error) {
-      showMessage(error.message, "error", "foodScanMessage");
-    } finally {
-      setBusy(button, false);
-    }
-  };
-}
-
-/* -------------------- REPORTS -------------------- */
-
-async function loadReports(workspace) {
-  const month = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Kolkata"
-  }).slice(0, 7);
-
-  workspace.innerHTML = `
-    <h2>Reports</h2>
-    <form id="reportFilter" style="display:flex;gap:8px;flex-wrap:wrap">
-      <label>Month <input id="reportMonth" type="month" value="${month}" required></label>
-      <button type="submit">Load Report</button>
-    </form>
-    <div id="reportResults" style="margin-top:16px"></div>
-  `;
-
-  $("reportFilter").onsubmit = async event => {
-    event.preventDefault();
-
-    const selectedMonth = $("reportMonth").value;
-
-    try {
-      const data = await api(
-        `/api/reports?month=${encodeURIComponent(selectedMonth)}`
-      );
-
-      const sections = [
-        ["Food totals", data.food_totals || data.foodTotals],
-        ["Daily food", data.daily_food || data.dailyFood],
-        ["Cab daily totals", data.cab_daily || data.cabDaily],
-        ["Attendance summary", data.attendance || data.attendance_summary]
-      ].filter(([, rows]) => Array.isArray(rows));
-
-      $("reportResults").innerHTML = sections.map(([title, rows], index) => `
-        <section style="margin-bottom:18px">
-          <h3>${escapeHTML(title)}</h3>
-          <button type="button" data-export-section="${index}">Export CSV</button>
-          <div style="overflow-x:auto">
-            ${renderTable(rows)}
-          </div>
-        </section>
-      `).join("") || `
-        <p>Report loaded, but no recognized report arrays were returned.</p>
-      `;
-
-      $("reportResults").querySelectorAll("[data-export-section]").forEach(button => {
-        button.onclick = () => {
-          const section = sections[Number(button.dataset.exportSection)];
-          if (section) downloadCSV(section[1], `${selectedMonth}-${section[0]}.csv`);
-        };
-      });
-    } catch (error) {
-      $("reportResults").textContent = error.message;
-    }
-  };
-
-  $("reportFilter").requestSubmit();
-}
-
-function renderTable(rows) {
-  if (!rows.length) return "<p>No records.</p>";
-
-  const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
-
-  return `
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr>
-        ${columns.map(col => `<th align="left">${escapeHTML(col)}</th>`).join("")}
-      </tr></thead>
-      <tbody>
-        ${rows.map(row => `
-          <tr>
-            ${columns.map(col => `<td>${escapeHTML(row[col])}</td>`).join("")}
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-function downloadCSV(rows, filename) {
-  if (!rows.length) {
-    showMessage("No data to export.", "info");
-    return;
-  }
-
-  const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
-
-  const cell = value => {
-    let text = String(value ?? "");
-
-    // Reduce the risk of spreadsheet formula injection.
-    if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
-
-    return `"${text.replace(/"/g, '""')}"`;
-  };
-
-  const csv = [
-    columns.map(cell).join(","),
-    ...rows.map(row => columns.map(col => cell(row[col])).join(","))
-  ].join("\r\n");
-
-  const blob = new Blob(["\uFEFF" + csv], {
-    type: "text/csv;charset=utf-8;"
-  });
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = filename.replace(/[^\w.-]/g, "_");
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-window.downloadCSV = downloadCSV;
-
-/* -------------------- REQUESTS -------------------- */
-
-async function loadRequests(workspace) {
-  const data = await api("/api/requests");
-  const requests = getArray(data, "requests", "results", "data");
-
-  workspace.innerHTML = `
-    <h2>HR Requests</h2>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr>
-          <th align="left">Person</th>
-          <th align="left">Type</th>
-          <th align="left">From</th>
-          <th align="left">To</th>
-          <th align="left">Remarks</th>
-          <th align="left">Status</th>
-          <th align="left">Action</th>
-        </tr></thead>
-        <tbody>
-          ${requests.map(request => `
-            <tr>
-              <td>${escapeHTML(request.person_name || request.person_id)}</td>
-              <td>${escapeHTML(request.request_type)}</td>
-              <td>${escapeHTML(request.from_date)}</td>
-              <td>${escapeHTML(request.to_date)}</td>
-              <td>${escapeHTML(request.remarks)}</td>
-              <td>${escapeHTML(request.status)}</td>
-              <td>
-                ${String(request.status).toUpperCase() === "PENDING" ? `
-                  <button type="button" data-review="${escapeHTML(request.id)}" data-status="APPROVED">Approve</button>
-                  <button type="button" data-review="${escapeHTML(request.id)}" data-status="REJECTED">Reject</button>
-                ` : ""}
-              </td>
-            </tr>
-          `).join("") || `<tr><td colspan="7">No requests found.</td></tr>`}
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  workspace.querySelectorAll("[data-review]").forEach(button => {
-    button.onclick = async () => {
-      const action = button.dataset.status;
-
-      if (!confirm(`${action} this request?`)) return;
-
-      try {
-        await postJSON("/api/requests/review", {
-          id: button.dataset.review,
-          request_id: button.dataset.review,
-          status: action
-        });
-
-        showMessage(`Request ${action.toLowerCase()}.`, "success");
-        await openSection("requests");
-      } catch (error) {
-        showMessage(error.message, "error");
+    if (user.kind === "STAFF") {
+      switch (activeTab) {
+        case "Dashboard": return await dashboard();
+        case "People": return await peoplePage();
+        case "Rooms": return await roomsPage();
+        case "Food QR": return await foodQRPage();
+        case "Cab Scanner": return cabPage();
+        case "Attendance": return await attendancePage();
+        case "Requests": return await requestsPage();
+        case "Reports": return await reportsPage();
       }
-    };
+    } else {
+      switch (activeTab) {
+        case "Profile": return await profilePage(profile);
+        case "My QR": return await myQRPage(profile);
+        case "Food Scanner": return foodScanPage();
+        case "Requests to HR": return await personRequestsPage();
+      }
+    }
+  } catch (err) {
+    page.innerHTML = `<section class="card"><div class="msg error">${esc(err.message)}</div><button onclick="location.reload()">Reload</button></section>`;
+  }
+}
+
+function stat(label, value) {
+  return `<section class="card"><div class="muted">${esc(label)}</div><div class="stat">${esc(value)}</div></section>`;
+}
+
+async function dashboard() {
+  const d = await api("/api/dashboard");
+  const people = [...d.employees, ...d.interns];
+  $("#page").innerHTML = `
+    <h2 class="title">Operations Dashboard</h2>
+    <div class="grid">
+      ${stat("Employees", d.employees.length)}
+      ${stat("Interns", d.interns.length)}
+      ${stat("Rooms", d.rooms.length)}
+      ${stat("Pending HR", d.pending_requests)}
+      ${stat("Food scans today", d.food_today)}
+      ${stat("Cab entries today", d.cab_today)}
+      ${stat("Attendance entries today", d.attendance_today)}
+      ${stat("Currently IN", people.filter(p => p.hostel_status === "IN" && p.status === "ACTIVE").length)}
+    </div>
+    <section class="card" style="margin-top:14px">
+      <h3 class="title">Quick access</h3>
+      <div class="actions">
+        ${["People", "Rooms", "Food QR", "Cab Scanner", "Attendance", "Requests", "Reports"]
+          .map(t => `<button class="secondary" data-go="${t}">${t}</button>`).join("")}
+      </div>
+      <p class="muted">Employee and Intern records · Hostel status · Meals · Cab · Shift attendance · HR approvals</p>
+    </section>`;
+  $("#page").querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+    activeTab = b.dataset.go;
+    $("#nav").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.tab === activeTab));
+    renderTab();
   });
 }
 
-/* -------------------- EMPLOYEE SELF-SERVICE -------------------- */
+async function peoplePage() {
+  cachedPeople = await api("/api/people");
+  const all = [
+    ...cachedPeople.employees.map(p => ({ ...p, person_type: "EMPLOYEE" })),
+    ...cachedPeople.interns.map(p => ({ ...p, person_type: "INTERN" }))
+  ];
+  $("#page").innerHTML = `
+    <h2 class="title">People Management</h2>
+    <section class="card">
+      <div class="formgrid">
+        ${selectField("Person type", "filterType", ["ALL", "EMPLOYEE", "INTERN"])}
+        ${selectField("Status", "filterStatus", ["ALL", "ACTIVE", "RESIGNED"])}
+      </div>
+      <div class="field"><label for="peopleSearch">Search name / ID / department</label>
+        <input id="peopleSearch" placeholder="Search records"></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Type / ID</th><th>Name</th><th>Department</th><th>Room / Shift</th><th>Hostel status</th><th>Record status</th><th>Action</th></tr></thead>
+        <tbody id="peopleRows"></tbody>
+      </table></div>
+    </section>`;
 
-async function loadMyDetails() {
-  const target = $("myAccountDetails");
-  if (!target) return;
+  const draw = () => {
+    const q = $("#peopleSearch").value.toLowerCase();
+    const type = $("#filterType").value;
+    const status = $("#filterStatus").value;
+    const rows = all.filter(p =>
+      (type === "ALL" || p.person_type === type) &&
+      (status === "ALL" || p.status === status) &&
+      [p.id, p.name, p.department, p.room].join(" ").toLowerCase().includes(q)
+    ).map(p => `<tr>
+      <td>${esc(p.person_type)}<br>${esc(p.id)}</td>
+      <td>${esc(p.name)}<br>${esc(p.mobile)}</td>
+      <td>${esc(p.department)}</td>
+      <td>${esc(p.room)}<br>${esc(p.shift)}</td>
+      <td>${esc(p.hostel_status)}</td>
+      <td>${esc(p.status)}</td>
+      <td>
+        <button class="small" data-edit="${esc(p.person_type)}|${esc(p.id)}">Edit</button>
+        <button class="small secondary" data-resign="${esc(p.person_type)}|${esc(p.id)}">Resign</button>
+      </td></tr>`).join("");
+    $("#peopleRows").innerHTML = rows || `<tr><td colspan="7">No records found.</td></tr>`;
+    $("#peopleRows").querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editPerson(...b.dataset.edit.split("|")));
+    $("#peopleRows").querySelectorAll("[data-resign]").forEach(b => b.onclick = () => resignPerson(...b.dataset.resign.split("|")));
+  };
 
+  $("#peopleSearch").oninput = draw;
+  $("#filterType").onchange = draw;
+  $("#filterStatus").onchange = draw;
+  draw();
+
+  $("#page").insertAdjacentHTML("beforeend", `
+    <section class="card" style="margin-top:14px">
+      <h3 class="title">Download records</h3>
+      <div class="actions">
+        <button data-export="employees">Employees CSV</button>
+        <button data-export="interns">Interns CSV</button>
+        <button data-export="requests">Requests CSV</button>
+      </div>
+    </section>`);
+  $("#page").querySelectorAll("[data-export]").forEach(b => b.onclick = () => exportCSV(b.dataset.export));
+}
+
+async function editPerson(type, id) {
+  const list = type === "INTERN" ? cachedPeople.interns : cachedPeople.employees;
+  const p = list.find(x => x.id === id);
+  if (!p) return;
+  const old = $("#editBox");
+  if (old) old.remove();
+
+  $("#page").insertAdjacentHTML("afterbegin", `
+    <section class="card" id="editBox" style="margin-bottom:14px">
+      <h3 class="title">Edit ${esc(p.name)}</h3>
+      <form id="editForm">
+        <div class="formgrid">
+          ${field("Name", "eName", "text", p.name, true)}
+          ${field("Mobile", "eMobile", "tel", p.mobile, true)}
+          ${selectField("Department", "eDept", DEPARTMENTS, p.department)}
+          ${field("Designation", "eDesignation", "text", p.designation)}
+          ${selectField("Shift", "eShift", ["", ...SHIFTS], p.shift)}
+          ${field("Room", "eRoom", "text", p.room)}
+          ${selectField("Hostel status", "eHostel", ["IN", "OUT/LEAVE", "VACATED"], p.hostel_status)}
+          ${selectField("Record status", "eStatus", ["ACTIVE", "RESIGNED"], p.status)}
+          ${field("New password (optional)", "ePassword", "password")}
+        </div>
+        <div class="actions">
+          <button type="submit">Save changes</button>
+          <button type="button" class="secondary" id="cancelEdit">Cancel</button>
+        </div>
+      </form>
+    </section>`);
+
+  $("#cancelEdit").onclick = () => $("#editBox").remove();
+  $("#editForm").onsubmit = async e => {
+    e.preventDefault();
+    try {
+      const body = {
+        person_type: type,
+        person_id: id,
+        name: $("#eName").value,
+        mobile: $("#eMobile").value,
+        department: $("#eDept").value,
+        designation: $("#eDesignation").value,
+        shift: $("#eShift").value,
+        room: $("#eRoom").value,
+        hostel_status: $("#eHostel").value,
+        status: $("#eStatus").value,
+        password: $("#ePassword").value
+      };
+      await api("/api/people/update", { method: "POST", body: JSON.stringify(body) });
+      await peoplePage();
+      say("Record updated.");
+    } catch (err) {
+      say(err.message, true);
+    }
+  };
+  $("#editBox").scrollIntoView({ behavior: "smooth" });
+}
+
+async function resignPerson(type, id) {
+  if (!confirm(`Mark ${id} as RESIGNED? Historical data will remain.`)) return;
   try {
-    const data = await api("/api/me");
-    const user = data.user || data.person || data.staff || data;
-
-    target.innerHTML = `
-      <p><strong>Name:</strong> ${escapeHTML(user.name)}</p>
-      <p><strong>ID:</strong> ${escapeHTML(
-        user.employee_id || user.intern_id || user.staff_id || user.id
-      )}</p>
-      <p><strong>Department:</strong> ${escapeHTML(user.department)}</p>
-      <p><strong>Shift:</strong> ${escapeHTML(user.shift)}</p>
-      <p><strong>Room:</strong> ${escapeHTML(user.room)}</p>
-      <p><strong>Hostel status:</strong> ${escapeHTML(user.hostel_status)}</p>
-    `;
-
-    if ($("myShift")) $("myShift").value = user.shift || SHIFTS[0];
-  } catch (error) {
-    target.textContent = error.message;
+    await api("/api/people/delete", { method: "POST", body: JSON.stringify({ person_type: type, person_id: id }) });
+    await peoplePage();
+    say("Record marked RESIGNED.");
+  } catch (e) {
+    say(e.message, true);
   }
 }
 
-async function submitMyShift(event) {
-  event.preventDefault();
+async function roomsPage() {
+  const [d, p] = await Promise.all([api("/api/rooms"), api("/api/people")]);
+  cachedPeople = p;
+  const people = [...p.employees, ...p.interns];
+  const rows = d.rooms.map(r => {
+    const count = people.filter(x =>
+      x.room === r.room_number && x.hostel_status === "IN" && x.status === "ACTIVE"
+    ).length;
+    return `<tr>
+      <td>${esc(r.room_number)}</td>
+      <td>${esc(r.block)}</td>
+      <td>${count}</td>
+      <td>${esc(r.status)}</td>
+      <td><button class="small" data-room="${esc(r.room_number)}" data-status="${esc(r.status)}">Toggle status</button></td>
+    </tr>`;
+  }).join("");
 
-  try {
-    await postJSON("/api/my/shift", {
-      shift: $("myShift").value
-    });
+  $("#page").innerHTML = `
+    <h2 class="title">Rooms</h2>
+    <section class="card">
+      <p class="muted">Room occupancy is not restricted to a fixed bed count.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Room</th><th>Block</th><th>Occupants currently IN</th><th>Room status</th><th>Action</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </section>`;
 
-    showMessage("Shift update submitted.", "success");
-    await loadMyDetails();
-  } catch (error) {
-    showMessage(error.message, "error");
-  }
+  $("#page").querySelectorAll("[data-room]").forEach(b => b.onclick = async () => {
+    try {
+      await api("/api/rooms/update", {
+        method: "POST",
+        body: JSON.stringify({
+          room_number: b.dataset.room,
+          status: b.dataset.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"
+        })
+      });
+      await roomsPage();
+    } catch (e) {
+      say(e.message, true);
+    }
+  });
 }
 
-async function submitMyRequest(event) {
-  event.preventDefault();
+async function foodQRPage() {
+  const d = await api("/api/food/qr");
+  $("#page").innerHTML = `
+    <h2 class="title">Food QR</h2>
+    <section class="card">
+      <p>Employees and Interns scan this QR from their Food Scanner tab, then select their meal.</p>
+      <img class="qr" alt="Food QR code" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(d.qr_token)}">
+      <p class="muted">Keep this QR inside the authorized food counter. The token is active until disabled in the database.</p>
+      <div class="actions">
+        <button id="copyFood" class="secondary">Copy food QR token</button>
+        <button id="foodRefresh">Refresh</button>
+      </div>
+    </section>`;
+  $("#copyFood").onclick = () => copyText(d.qr_token);
+  $("#foodRefresh").onclick = () => foodQRPage();
+}
 
-  const fromDate = $("myRequestFrom").value;
-  const toDate = $("myRequestTo").value;
+function cabPage() {
+  $("#page").innerHTML = `
+    <h2 class="title">Cab Scanner</h2>
+    <section class="card">
+      <p>Scan an Employee/Intern My QR code to save name, ID, department, shift, room, date and time.</p>
+      <div class="actions">
+        <button id="startCab">Start camera</button>
+        <button class="secondary" id="stopCab">Stop camera</button>
+      </div>
+      <video id="camera" autoplay playsinline muted class="hidden"></video>
+      <div id="scanStatus" class="msg">Camera not started.</div>
+      <div class="field"><label for="manualQR">Or enter QR token manually</label>
+        <input id="manualQR" placeholder="Paste scanned QR token"></div>
+      <button id="submitCab">Save cab entry</button>
+      <div id="scanResult"></div>
+    </section>`;
+  $("#startCab").onclick = () => startCamera("cab");
+  $("#stopCab").onclick = stopCamera;
+  $("#submitCab").onclick = () => submitCab($("#manualQR").value.trim());
+}
 
-  if (toDate < fromDate) {
-    showMessage("End date cannot be before start date.", "error");
+async function startCamera(mode) {
+  cameraMode = mode;
+  const video = $("#camera");
+  if (!video) { say("Scanner panel not available.", true); return; }
+  if (!("BarcodeDetector" in window)) {
+    say("QR camera scanning is not supported in this browser. Use a QR scanner app and paste the token.", true);
     return;
   }
-
   try {
-    await postJSON("/api/requests", {
-      request_type: $("myRequestType").value,
-      from_date: fromDate,
-      to_date: toDate,
-      remarks: $("myRequestRemarks").value.trim()
+    stopCamera();
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
     });
+    video.srcObject = cameraStream;
+    video.classList.remove("hidden");
+    await video.play().catch(() => {});
+    const detector = new BarcodeDetector({ formats: ["qr_code"] });
+    const status = $("#scanStatus");
+    if (status) status.textContent = "Camera active. Point it at the QR.";
 
-    showMessage("Request submitted.", "success");
-    $("myRequestForm").reset();
-    await loadMyRequests();
-  } catch (error) {
-    showMessage(error.message, "error");
+    const scan = async () => {
+      if (!cameraStream || !video.isConnected) return;
+      try {
+        const codes = await detector.detect(video);
+        if (codes.length && codes[0].rawValue) {
+          const value = codes[0].rawValue;
+          if (cameraMode === "cab") {
+            $("#manualQR").value = value;
+            stopCamera();
+            await submitCab(value);
+          } else {
+            $("#foodToken").value = value;
+            stopCamera();
+          }
+          return;
+        }
+      } catch {}
+      if (cameraStream) requestAnimationFrame(scan);
+    };
+    requestAnimationFrame(scan);
+  } catch (e) {
+    say("Camera permission failed: " + e.message, true);
   }
 }
 
-async function loadMyRequests() {
-  const target = $("myRequestsList");
-  if (!target) return;
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const v = $("#camera");
+  if (v) {
+    v.srcObject = null;
+    v.classList.add("hidden");
+  }
+}
 
+async function submitCab(qr_token) {
+  if (!qr_token) { say("Scan or enter an employee QR token.", true); return; }
   try {
-    const data = await api("/api/requests");
-    const rows = getArray(data, "requests", "results", "data");
-
-    target.innerHTML = `
-      <h4>Request History</h4>
-      ${rows.map(row => `
-        <article style="padding:12px;margin:8px 0;border:1px solid #e2e8f0;border-radius:10px">
-          <strong>${escapeHTML(row.request_type)}</strong>
-          <div>${escapeHTML(row.from_date)} to ${escapeHTML(row.to_date)}</div>
-          <div>Status: ${escapeHTML(row.status)}</div>
-          <div>${escapeHTML(row.remarks)}</div>
-        </article>
-      `).join("") || "<p>No requests yet.</p>"}
-    `;
-  } catch (error) {
-    target.textContent = error.message;
+    const d = await api("/api/cab/scan", { method: "POST", body: JSON.stringify({ qr_token }) });
+    $("#scanResult").innerHTML = `<div class="msg">Saved: ${esc(d.entry.name)} · ${esc(d.entry.id)} · ${esc(d.entry.date)} ${esc(d.entry.time)}</div>`;
+    $("#manualQR").value = "";
+  } catch (e) {
+    say(e.message, true);
   }
 }
 
-/* -------------------- STARTUP -------------------- */
+async function attendancePage() {
+  const people = await api("/api/people");
+  cachedPeople = people;
+  const all = [
+    ...people.employees.map(p => ({ ...p, person_type: "EMPLOYEE" })),
+    ...people.interns.map(p => ({ ...p, person_type: "INTERN" }))
+  ].filter(p => p.status === "ACTIVE");
+  const today = new Date().toISOString().slice(0, 10);
 
-document.addEventListener("DOMContentLoaded", async () => {
-  bindLoginForms();
-  bindStaffRegistration();
+  $("#page").innerHTML = `
+    <h2 class="title">Shift Attendance</h2>
+    <section class="card">
+      <form id="attendanceForm">
+        <div class="formgrid">
+          <div class="field"><label for="attPerson">Person</label>
+            <select id="attPerson">
+              ${all.map(p => `<option value="${esc(p.person_type + "|" + p.id)}">${esc(p.name + " · " + p.id + " · " + p.department)}</option>`).join("")}
+            </select>
+          </div>
+          ${selectField("Shift", "attShift", SHIFTS)}
+          ${selectField("Attendance", "attStatus", ["PRESENT", "ABSENT", "N/A"])}
+          ${field("Date", "attDate", "date", today, true)}
+        </div>
+        <button type="submit">Save attendance</button>
+      </form>
+    </section>
+    <section class="card" style="margin-top:14px">
+      <h3 class="title">View records</h3>
+      <div class="field"><label for="attViewDate">Date</label>
+        <input id="attViewDate" type="date" value="${today}"></div>
+      <button id="loadAttendance">Load attendance</button>
+      <div id="attRows"></div>
+    </section>`;
 
-  if (currentToken && currentUser) {
+  $("#attendanceForm").onsubmit = async e => {
+    e.preventDefault();
+    const [person_type, person_id] = $("#attPerson").value.split("|");
     try {
-      await api("/api/me");
-      showScreen("staffPortalScreen");
-      await renderPortal();
-      return;
-    } catch {
-      clearSession();
+      await api("/api/attendance", {
+        method: "POST",
+        body: JSON.stringify({
+          person_type,
+          person_id,
+          shift: $("#attShift").value,
+          attendance_status: $("#attStatus").value,
+          attendance_date: $("#attDate").value
+        })
+      });
+      say("Attendance saved.");
+    } catch (err) {
+      say(err.message, true);
     }
-  }
+  };
 
-  showHome();
-});
+  $("#loadAttendance").onclick = async () => {
+    try {
+      const d = await api("/api/attendance?date=" + encodeURIComponent($("#attViewDate").value));
+      $("#attRows").innerHTML = table(d.attendance, ["person_id", "person_type", "department", "room", "shift", "attendance_status", "attendance_date"]);
+    } catch (e) {
+      say(e.message, true);
+    }
+  };
+}
+
+async function requestsPage() {
+  const d = await api("/api/requests");
+  const rows = d.requests.map(r => `<tr>
+    <td>${esc(r.id)}<br>${esc(r.person_name)}<br>${esc(r.person_id)}</td>
+    <td>${esc(r.request_type)}</td>
+    <td>${esc(r.from_date)}<br>${esc(r.to_date)}</td>
+    <td>${esc(r.remarks)}</td>
+    <td>${esc(r.status)}</td>
+    <td>${esc(r.hr_remarks)}</td>
+    <td>${r.status === "PENDING"
+      ? `<button class="small" data-review="${r.id}|APPROVED">Approve</button> <button class="small danger" data-review="${r.id}|REJECTED">Reject</button>`
+      : "Completed"}</td>
+  </tr>`).join("") || `<tr><td colspan="7">No requests yet.</td></tr>`;
+
+  $("#page").innerHTML = `
+    <h2 class="title">Requests to HR</h2>
+    <section class="card"><div class="tablewrap"><table>
+      <thead><tr><th>ID / Person</th><th>Request</th><th>Dates</th><th>Remarks</th><th>Status</th><th>HR response</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div></section>`;
+
+  $("#page").querySelectorAll("[data-review]").forEach(b => b.onclick = async () => {
+    const [id, status] = b.dataset.review.split("|");
+    const remarks = prompt("HR remarks (optional):") || "";
+    try {
+      await api("/api/requests/review", {
+        method: "POST",
+        body: JSON.stringify({ id, status, hr_remarks: remarks })
+      });
+      await requestsPage();
+      say("Request " + status.toLowerCase() + ".");
+    } catch (e) {
+      say(e.message, true);
+    }
+  });
+}
+
+async function profilePage(profile) {
+  const d = profile || await api("/api/me");
+  const p = d.user || user;
+  $("#page").innerHTML = `
+    <h2 class="title">My Profile</h2>
+    <section class="card">
+      <div class="grid">
+        ${stat("Name", p.name)}
+        ${stat("ID", p.id || p.person_id)}
+        ${stat("Department", p.department)}
+        ${stat("Hostel status", p.hostel_status)}
+      </div>
+      <div class="formgrid" style="margin-top:14px">
+        <div class="field"><label>Mobile</label><input value="${esc(p.mobile)}" readonly></div>
+        <div class="field"><label>Designation</label><input value="${esc(p.designation)}" readonly></div>
+        <div class="field"><label>Room</label><input value="${esc(p.room)}" readonly></div>
+        <div class="field"><label for="myShift">My shift</label>
+          <select id="myShift">
+            <option value="">Select shift</option>
+            ${SHIFTS.map(s => `<option>${s}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <button id="saveShift">Update my shift</button>
+      <p class="muted">You can update only your own shift. Contact HR for other profile changes.</p>
+    </section>`;
+  $("#myShift").value = p.shift || "";
+  $("#saveShift").onclick = async () => {
+    try {
+      await api("/api/my/shift", { method: "POST", body: JSON.stringify({ shift: $("#myShift").value }) });
+      say("Shift updated.");
+    } catch (e) {
+      say(e.message, true);
+    }
+  };
+}
+
+async function myQRPage(profile) {
+  let d = profile;
+  if (!d || !d.qr_token) d = await api("/api/me");
+  const p = d.user || user;
+  $("#page").innerHTML = `
+    <h2 class="title">My QR</h2>
+    <section class="card">
+      <p>Show this QR to authorized HR for cab entry.</p>
+      <img class="qr" alt="My QR" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(d.qr_token)}">
+      <p><strong>${esc(p.name)}</strong><br>${esc(p.id || p.person_id)} · ${esc(p.department)}</p>
+      <button class="secondary" id="copyMyQR">Copy QR token</button>
+    </section>`;
+  $("#copyMyQR").onclick = () => copyText(d.qr_token);
+}
+
+function foodScanPage() {
+  $("#page").innerHTML = `
+    <h2 class="title">Food Scanner</h2>
+    <section class="card">
+      <p>Scan the QR displayed by HR, then choose your meal.</p>
+      <div class="actions">
+        <button id="startFood">Scan food QR</button>
+        <button id="stopFood" class="secondary">Stop camera</button>
+      </div>
+      <video id="camera" autoplay playsinline muted class="hidden"></video>
+      <div class="field"><label for="foodToken">Food QR token</label>
+        <input id="foodToken" placeholder="Scan QR or paste token"></div>
+      ${selectField("Meal", "mealType", ["BREAKFAST", "LUNCH", "DINNER"])}
+      <button id="submitFood">Record my meal</button>
+    </section>`;
+  $("#startFood").onclick = () => startCamera("food");
+  $("#stopFood").onclick = stopCamera;
+  $("#submitFood").onclick = async () => {
+    try {
+      await api("/api/food/scan", {
+        method: "POST",
+        body: JSON.stringify({ qr_token: $("#foodToken").value.trim(), meal_type: $("#mealType").value })
+      });
+      say("Meal recorded successfully.");
+      $("#foodToken").value = "";
+    } catch (e) {
+      say(e.message, true);
+    }
+  };
+}
+
+async function personRequestsPage() {
+  const d = await api("/api/requests");
+  const rows = d.requests.map(r => `<tr>
+    <td>${esc(r.request_type)}</td>
+    <td>${esc(r.from_date)}<br>${esc(r.to_date)}</td>
+    <td>${esc(r.remarks)}</td>
+    <td>${esc(r.status)}</td>
+    <td>${esc(r.hr_remarks)}</td>
+  </tr>`).join("") || `<tr><td colspan="5">No requests yet.</td></tr>`;
+
+  $("#page").innerHTML = `
+    <h2 class="title">Requests to HR</h2>
+    <section class="card">
+      <form id="requestForm">
+        ${selectField("Request type", "reqType", ["LEAVE", "TEMPORARY OUT", "RETURN", "VACATE"])}
+        <div class="formgrid">
+          ${field("From date", "reqFrom", "date")}
+          ${field("To date", "reqTo", "date")}
+        </div>
+        <div class="field"><label for="reqRemarks">Remarks</label>
+          <textarea id="reqRemarks" placeholder="Add a short note for HR"></textarea></div>
+        <button type="submit">Submit request</button>
+      </form>
+    </section>
+    <section class="card" style="margin-top:14px">
+      <h3 class="title">My request history</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Type</th><th>Dates</th><th>Remarks</th><th>Status</th><th>HR response</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </section>`;
+
+  $("#requestForm").onsubmit = async e => {
+    e.preventDefault();
+    try {
+      await api("/api/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          request_type: $("#reqType").value,
+          from_date: $("#reqFrom").value,
+          to_date: $("#reqTo").value,
+          remarks: $("#reqRemarks").value
+        })
+      });
+      await personRequestsPage();
+      say("Request sent to HR.");
+    } catch (err) {
+      say(err.message, true);
+    }
+  };
+}
+
+async function reportsPage() {
+  const month = new Date().toISOString().slice(0, 7);
+  $("#page").innerHTML = `
+    <h2 class="title">Reports & Export</h2>
+    <section class="card">
+      <div class="field"><label for="reportMonth">Report month</label>
+        <input id="reportMonth" type="month" value="${month}"></div>
+      <div class="actions">
+        <button id="loadReport">Load report</button>
+        <button class="secondary" data-export="food">Food CSV</button>
+        <button class="secondary" data-export="cab">Cab CSV</button>
+        <button class="secondary" data-export="attendance">Attendance CSV</button>
+        <button class="secondary" data-export="requests">Requests CSV</button>
+      </div>
+      <div id="reportData"></div>
+    </section>`;
+
+  $("#loadReport").onclick = async () => {
+    try {
+      const d = await api("/api/reports?month=" + encodeURIComponent($("#reportMonth").value));
+      $("#reportData").innerHTML =
+        `<h3>Meal totals</h3>${table(d.food, ["meal_type", "total"])}` +
+        `<h3>Daily meals</h3>${table(d.daily_food, ["entry_date", "meal_type", "total"])}` +
+        `<h3>Cab totals</h3>${table(d.cab, ["entry_date", "total"])}` +
+        `<h3>Attendance</h3>${table(d.attendance, ["attendance_date", "shift", "attendance_status", "total"])}`;
+    } catch (e) {
+      say(e.message, true);
+    }
+  };
+  $("#page").querySelectorAll("[data-export]").forEach(b => b.onclick = () => exportCSV(b.dataset.export));
+  $("#loadReport").click();
+}
+
+function table(rows, cols) {
+  if (!rows || !rows.length) return `<p class="muted">No records found.</p>`;
+  return `<div class="tablewrap"><table><thead><tr>${cols.map(c => `<th>${esc(c.replaceAll("_", " "))}</th>`).join("")}</tr></thead>` +
+    `<tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+async function exportCSV(type) {
+  try {
+    const d = await api("/api/export?type=" + encodeURIComponent(type));
+    const rows = d.rows || [];
+    if (!rows.length) { say("No records to export."); return; }
+    const cols = [...new Set(rows.flatMap(r => Object.keys(r)))].filter(c => c !== "password");
+    const quote = v => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const csv = [cols.map(quote).join(",")]
+      .concat(rows.map(r => cols.map(c => quote(r[c])).join(",")))
+      .join("\r\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `texmo-${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    say(e.message, true);
+  }
+}
+
+async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    say("Copied.");
+  } catch {
+    prompt("Copy this token:", value);
+  }
+}
+
+if (token) {
+  enterPortal();
+} else {
+  loginScreen();
+}
+})();
